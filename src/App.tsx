@@ -9,6 +9,7 @@ import { FavoritesArchive } from './components/FavoritesArchive';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { DevotionalHistoryModal } from './components/DevotionalHistoryModal';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { 
   saveDevotionalToCloud, 
@@ -263,13 +264,16 @@ function AppContent() {
 
       {/* Footer */}
       <footer className="hidden md:block py-6 border-t border-amber-200/50 bg-amber-50/40 text-center text-xs text-slate-500">
-        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="font-heading-cinzel font-semibold text-amber-950">
             Luz Diária • Devocionais Bíblicos & Progresso de Leitura
           </p>
-          <p className="text-slate-400">
-            Alimentando o espírito com as Sagradas Escrituras a cada manhã
-          </p>
+          <div className="flex items-center gap-3">
+            <PWAInstallButton variant="header" />
+            <p className="text-slate-400">
+              Alimentando o espírito com as Sagradas Escrituras a cada manhã
+            </p>
+          </div>
         </div>
       </footer>
 

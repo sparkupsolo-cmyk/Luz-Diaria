@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ActiveTab } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -157,6 +158,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white"></span>
               </button>
             </div>
+
+            {/* PWA Install Button */}
+            <PWAInstallButton variant="header" />
 
             {/* User Account / Profile */}
             {user ? (
@@ -313,6 +317,11 @@ export const Header: React.FC<HeaderProps> = ({
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>
               )}
+
+              {/* Install App on Phone CTA */}
+              <div className="pt-2">
+                <PWAInstallButton variant="drawer" />
+              </div>
             </div>
 
             {/* Bottom Account Card inside Mobile Drawer */}
