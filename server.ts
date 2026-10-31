@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
+import { getOrGenerateDailySharedDevotional } from './src/server/devotionalService';
 
 dotenv.config();
 
@@ -13,6 +14,47 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// API: Today's Shared Devotional (America/Sao_Paulo)
+app.get('/api/devotional/today', async (_req: Request, res: Response) => {
+  try {
+    const result = await getOrGenerateDailySharedDevotional();
+    res.json({
+      success: true,
+      devotional: result.devotional,
+      source: result.source,
+      publishDate: result.publishDate
+    });
+  } catch (error: any) {
+    console.error('Error in /api/devotional/today:', error);
+    res.status(500).json({ success: false, error: error?.message });
+  }
+});
+
+// API: Daily Devotional Cron Job (Protected with CRON_SECRET)
+app.get('/api/cron/daily-devotional', async (req: Request, res: Response) => {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+
+  try {
+    const result = await getOrGenerateDailySharedDevotional();
+    res.json({
+      success: true,
+      message: `Daily devotional processed for ${result.publishDate}`,
+      source: result.source,
+      title: result.devotional.title,
+      reference: result.devotional.reference
+    });
+  } catch (error: any) {
+    console.error('Error in /api/cron/daily-devotional:', error);
+    res.status(500).json({ success: false, error: error?.message });
+  }
+});
 
 // Initialize Gemini SDK with telemetry header
 const getAIClient = () => {

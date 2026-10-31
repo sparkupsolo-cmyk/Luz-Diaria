@@ -7,6 +7,19 @@ import { ShareStudio } from './components/ShareStudio';
 import { MorningNotificationManager } from './components/MorningNotificationManager';
 import { DevotionalAIGenerator } from './components/DevotionalAIGenerator';
 import { FavoritesArchive } from './components/FavoritesArchive';
+import { AuthModal } from './components/AuthModal';
+import { UserProfileModal } from './components/UserProfileModal';
+import { DevotionalHistoryModal } from './components/DevotionalHistoryModal';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { 
+  saveDevotionalToCloud, 
+  addFavoriteToCloud, 
+  removeFavoriteFromCloud,
+  fetchUserFavoritesFromCloud,
+  fetchBibleProgressFromCloud,
+  saveBibleProgressToCloud,
+  fetchTodaySharedDevotional
+} from './lib/supabase';
 import { CURATED_DEVOTIONALS } from './data/curatedDevotionals';
 import { TOTAL_BIBLE_CHAPTERS } from './data/bibleBooks';
 import { Devotional, BibleProgress, NotificationConfig, ActiveTab } from './types';
@@ -21,8 +34,13 @@ import {
   saveStoredCurrentDevotional
 } from './utils/storage';
 
-export default function App() {
+function AppContent() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('devocional');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
   const [currentDevotional, setCurrentDevotional] = useState<Devotional>(() => {
     const saved = getStoredCurrentDevotional();
     return saved || CURATED_DEVOTIONALS[0];
@@ -32,20 +50,82 @@ export default function App() {
   const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(getStoredNotificationConfig);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
-  // Synchronize Bible reading progress
+  // 1. Fetch Shared Community Devotional of the Day (America/Sao_Paulo) on mount
+  useEffect(() => {
+    fetchTodaySharedDevotional().then((result) => {
+      if (result?.devotional) {
+        setCurrentDevotional(result.devotional);
+        saveStoredCurrentDevotional(result.devotional);
+      }
+    }).catch((err) => {
+      console.warn('Could not fetch shared daily devotional on mount:', err);
+    });
+  }, []);
+
+  // Sync with Supabase on user sign-in
+  useEffect(() => {
+    if (user?.id) {
+      // 1. Fetch Cloud Favorites
+      fetchUserFavoritesFromCloud(user.id).then((cloudFavs) => {
+        if (cloudFavs && cloudFavs.length > 0) {
+          setFavorites((prev) => {
+            const map = new Map<string, Devotional>();
+            prev.forEach((f) => map.set(f.id, f));
+            cloudFavs.forEach((f) => map.set(f.id, f));
+            const merged = Array.from(map.values());
+            saveFavorites(merged);
+            return merged;
+          });
+        }
+      });
+
+      // 2. Fetch Cloud Bible Reading Progress
+      fetchBibleProgressFromCloud(user.id).then((cloudProgress) => {
+        if (cloudProgress) {
+          setBibleProgress((prev) => {
+            const mergedChapters = { ...prev.readChapters };
+            Object.entries(cloudProgress.readChapters).forEach(([bookId, chapters]) => {
+              const set = new Set(mergedChapters[bookId] || []);
+              chapters.forEach((c) => set.add(c));
+              mergedChapters[bookId] = Array.from(set).sort((a, b) => a - b);
+            });
+            const merged: BibleProgress = {
+              readChapters: mergedChapters,
+              readingStreak: Math.max(prev.readingStreak || 1, cloudProgress.readingStreak || 1),
+              lastReadDate: cloudProgress.lastReadDate || prev.lastReadDate,
+              lastUpdated: new Date().toISOString()
+            };
+            saveBibleProgress(merged);
+            return merged;
+          });
+        }
+      });
+    }
+  }, [user?.id]);
+
+  // Synchronize Bible reading progress locally and in the cloud
   const handleUpdateBibleProgress = (newProgress: BibleProgress) => {
     setBibleProgress(newProgress);
     saveBibleProgress(newProgress);
+    if (user?.id) {
+      saveBibleProgressToCloud(user.id, newProgress);
+    }
   };
 
-  // Synchronize favorites
+  // Synchronize favorites locally and in the cloud
   const handleToggleFavorite = (dev: Devotional) => {
     const isFav = favorites.some((f) => f.id === dev.id);
     let updated: Devotional[];
     if (isFav) {
       updated = favorites.filter((f) => f.id !== dev.id);
+      if (user?.id) {
+        removeFavoriteFromCloud(user.id, dev.id);
+      }
     } else {
       updated = [{ ...dev, isFavorite: true }, ...favorites];
+      if (user?.id) {
+        addFavoriteToCloud(user.id, dev);
+      }
     }
     setFavorites(updated);
     saveFavorites(updated);
@@ -55,6 +135,9 @@ export default function App() {
     const updated = favorites.filter((f) => f.id !== id);
     setFavorites(updated);
     saveFavorites(updated);
+    if (user?.id) {
+      removeFavoriteFromCloud(user.id, id);
+    }
   };
 
   // Synchronize notification config
@@ -73,7 +156,7 @@ export default function App() {
   // Check if current devotional is in favorites
   const isCurrentFavorite = favorites.some((f) => f.id === currentDevotional.id);
 
-  // Regenerate daily devotional via API
+  // Regenerate regular daily devotional via API
   const handleRegenerate = async () => {
     setIsGenerating(true);
     try {
@@ -90,11 +173,11 @@ export default function App() {
         if (data.devotional) {
           setCurrentDevotional(data.devotional);
           saveStoredCurrentDevotional(data.devotional);
+          saveDevotionalToCloud(data.devotional, user?.id);
         }
       }
     } catch (e) {
       console.error('Error regenerating devotional:', e);
-      // Select another from curated pool
       const nextDev = CURATED_DEVOTIONALS[(Math.floor(Math.random() * CURATED_DEVOTIONALS.length))];
       setCurrentDevotional(nextDev);
       saveStoredCurrentDevotional(nextDev);
@@ -121,11 +204,11 @@ export default function App() {
         if (data.devotional) {
           setCurrentDevotional(data.devotional);
           saveStoredCurrentDevotional(data.devotional);
+          saveDevotionalToCloud(data.devotional, user?.id);
         }
       }
     } catch (e) {
       console.error('Error generating confronting devotional:', e);
-      // Select another confronting from curated pool
       const nextDev = CURATED_DEVOTIONALS[(Math.floor(Math.random() * CURATED_DEVOTIONALS.length))];
       setCurrentDevotional(nextDev);
       saveStoredCurrentDevotional(nextDev);
@@ -147,7 +230,6 @@ export default function App() {
       targetTime.setHours(targetHours, targetMinutes, 0, 0);
 
       if (now >= targetTime && notificationConfig.lastDeliveredDate !== todayStr) {
-        // Trigger notification
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
           try {
             new Notification('🌅 Luz Diária • Bom dia!', {
@@ -165,19 +247,21 @@ export default function App() {
     };
 
     checkMorningNotification();
-    const interval = setInterval(checkMorningNotification, 60000); // Check every minute
+    const interval = setInterval(checkMorningNotification, 60000);
     return () => clearInterval(interval);
   }, [notificationConfig, currentDevotional]);
 
   return (
     <div className="min-h-screen bg-[#fcfbf9] text-slate-900 flex flex-col font-sans selection:bg-amber-200 selection:text-amber-950">
       
-      {/* Top Header */}
+      {/* Top Header with User Account Button */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         readingStreak={bibleProgress.readingStreak || 1}
         favoritesCount={favorites.length}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenProfileModal={() => setIsProfileModalOpen(true)}
       />
 
       {/* Main Navigation */}
@@ -228,6 +312,7 @@ export default function App() {
             onDevotionalGenerated={(newDev) => {
               setCurrentDevotional(newDev);
               saveStoredCurrentDevotional(newDev);
+              saveDevotionalToCloud(newDev, user?.id);
               setActiveTab('devocional');
             }}
             isGenerating={isGenerating}
@@ -255,7 +340,7 @@ export default function App() {
       <footer className="hidden md:block py-6 border-t border-amber-200/50 bg-amber-50/40 text-center text-xs text-slate-500">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="font-heading-cinzel font-semibold text-amber-950">
-            Luz Diária • Devocionais Inteligentes & Progresso Bíblico
+            Luz Diária • Devocionais Bíblicos & Progresso de Leitura
           </p>
           <p className="text-slate-400">
             Alimentando o espírito com as Sagradas Escrituras a cada manhã
@@ -263,6 +348,44 @@ export default function App() {
         </div>
       </footer>
 
+      {/* Supabase Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        favoritesCount={favorites.length}
+        totalChaptersRead={totalReadChapters}
+        readingStreak={bibleProgress.readingStreak || 1}
+        onOpenHistory={() => setIsHistoryModalOpen(true)}
+      />
+
+      {/* Devotional Cloud History Modal */}
+      <DevotionalHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        onSelectDevotional={(dev) => {
+          setCurrentDevotional(dev);
+          setActiveTab('devocional');
+        }}
+        onShareDevotional={(dev) => {
+          setCurrentDevotional(dev);
+          setActiveTab('compartilhar');
+        }}
+      />
+
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

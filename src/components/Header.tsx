@@ -1,20 +1,25 @@
-import React from 'react';
-import { Sparkles, Bell, Flame, Bookmark, SunMedium } from 'lucide-react';
+import { Sparkles, Bell, Flame, Bookmark, SunMedium, User as UserIcon, LogOut } from 'lucide-react';
 import { ActiveTab } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   readingStreak: number;
   favoritesCount: number;
+  onOpenAuthModal: () => void;
+  onOpenProfileModal: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   readingStreak,
-  favoritesCount
+  favoritesCount,
+  onOpenAuthModal,
+  onOpenProfileModal
 }) => {
+  const { user, signOut } = useAuth();
   const todayFormatted = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: 'numeric',
@@ -98,6 +103,38 @@ export const Header: React.FC<HeaderProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-amber-200" />
             <span>Palavra para o Coração</span>
           </button>
+
+          {/* User Account / Cloud Sync */}
+          {user ? (
+            <div className="flex items-center gap-1.5 pl-1">
+              <button
+                onClick={onOpenProfileModal}
+                title="Ver meu perfil e estatísticas"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold cursor-pointer hover:bg-emerald-100 transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span className="max-w-[70px] truncate sm:max-w-[100px]">
+                  {user.user_metadata?.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+                </span>
+              </button>
+              <button
+                onClick={() => signOut()}
+                title="Sair da conta"
+                className="p-1.5 rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuthModal}
+              title="Conectar com Supabase"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100/90 hover:bg-amber-200/80 border border-amber-300 text-amber-950 text-xs font-semibold cursor-pointer transition-colors"
+            >
+              <UserIcon className="w-3.5 h-3.5 text-amber-800" />
+              <span className="hidden sm:inline">Entrar</span>
+            </button>
+          )}
         </div>
 
       </div>
