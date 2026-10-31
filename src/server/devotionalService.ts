@@ -25,7 +25,7 @@ function getServerSupabaseClient(): SupabaseClient | null {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !key || url.includes('your-project-id')) return null;
+  if (!url || !key || url.includes('your-project-id') || url.includes('[COLE') || key.includes('your-supabase') || key.includes('[COLE')) return null;
 
   return createClient(url, key, {
     auth: {

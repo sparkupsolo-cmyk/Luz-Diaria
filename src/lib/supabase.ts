@@ -15,7 +15,11 @@ export const isSupabaseConfigured = (): boolean => {
     supabaseUrl && 
     supabasePublishableKey && 
     !supabaseUrl.includes('your-project-id') &&
-    !supabasePublishableKey.includes('your-supabase-publishable-key')
+    !supabaseUrl.includes('[COLE') &&
+    !supabaseUrl.includes('placeholder') &&
+    !supabasePublishableKey.includes('your-supabase') &&
+    !supabasePublishableKey.includes('[COLE') &&
+    !supabasePublishableKey.includes('placeholder')
   );
 };
 
