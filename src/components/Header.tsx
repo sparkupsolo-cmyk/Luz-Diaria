@@ -17,6 +17,7 @@ import {
 import { ActiveTab } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { PWAInstallButton } from './PWAInstallButton';
+import { ShareAppButton } from './ShareAppButton';
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -158,6 +159,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white"></span>
               </button>
             </div>
+
+            {/* Share App Button */}
+            <ShareAppButton variant="header" />
 
             {/* PWA Install Button */}
             <PWAInstallButton variant="header" />
@@ -319,7 +323,8 @@ export const Header: React.FC<HeaderProps> = ({
               )}
 
               {/* Install App on Phone CTA */}
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
+                <ShareAppButton variant="drawer" />
                 <PWAInstallButton variant="drawer" />
               </div>
             </div>

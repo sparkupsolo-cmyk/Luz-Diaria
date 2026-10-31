@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Devotional } from '../types';
 import { AudioNarrator } from '../utils/audioNarrator';
+import { ShareAppButton } from './ShareAppButton';
 
 interface DevotionalCardProps {
   devotional: Devotional;
@@ -110,10 +111,11 @@ ${devotional.prayer}
   }[fontSize];
 
   return (
-    <article className="max-w-3xl mx-auto bg-white rounded-3xl border border-amber-100 shadow-md shadow-amber-950/5 overflow-hidden transition-all duration-300">
-      
-      {/* Top Banner with Subtle Radiant Gradient */}
-      <div className="bg-linear-to-r from-amber-600 via-amber-700 to-amber-800 text-white px-6 sm:px-8 pt-7 pb-6 relative overflow-hidden">
+    <div className="max-w-3xl mx-auto space-y-4">
+      <article className="bg-white rounded-3xl border border-amber-100 shadow-md shadow-amber-950/5 overflow-hidden transition-all duration-300">
+        
+        {/* Top Banner with Subtle Radiant Gradient */}
+        <div className="bg-linear-to-r from-amber-600 via-amber-700 to-amber-800 text-white px-6 sm:px-8 pt-7 pb-6 relative overflow-hidden">
         {/* Subtle decorative circles */}
         <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-amber-400/20 blur-xl pointer-events-none" />
@@ -293,6 +295,11 @@ ${devotional.prayer}
 
       </div>
 
-    </article>
+      </article>
+
+      {/* Share the App Banner */}
+      <ShareAppButton variant="card-banner" />
+    </div>
   );
 };
+

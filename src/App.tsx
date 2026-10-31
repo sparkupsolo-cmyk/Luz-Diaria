@@ -10,6 +10,7 @@ import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
 import { DevotionalHistoryModal } from './components/DevotionalHistoryModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { ShareAppButton } from './components/ShareAppButton';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { 
   saveDevotionalToCloud, 
@@ -269,6 +270,7 @@ function AppContent() {
             Luz Diária • Devocionais Bíblicos & Progresso de Leitura
           </p>
           <div className="flex items-center gap-3">
+            <ShareAppButton variant="header" />
             <PWAInstallButton variant="header" />
             <p className="text-slate-400">
               Alimentando o espírito com as Sagradas Escrituras a cada manhã
