@@ -193,17 +193,19 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#fcfbf9] text-slate-900 flex flex-col font-sans selection:bg-amber-200 selection:text-amber-950">
       
-      {/* Top Header with User Account Button */}
+      {/* Top Header with User Account Button & Mobile Menu Drawer */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         readingStreak={bibleProgress.readingStreak || 1}
         favoritesCount={favorites.length}
+        biblePercentage={biblePercentage}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenProfileModal={() => setIsProfileModalOpen(true)}
+        onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
       />
 
-      {/* Main Navigation */}
+      {/* Main Navigation (Desktop Pill Bar + Mobile Top Strip + Mobile Bottom Bar) */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -211,7 +213,7 @@ function AppContent() {
       />
 
       {/* Main Body */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-12">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-4 pb-28 md:pb-12">
         {activeTab === 'devocional' && (
           <DevotionalCard
             devotional={currentDevotional}
