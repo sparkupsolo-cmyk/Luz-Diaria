@@ -1,4 +1,4 @@
-import { getOrGenerateDailySharedDevotional } from '../../src/server/devotionalService';
+import { getOrGenerateDailySharedDevotional } from '../../src/server/devotionalService.js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {

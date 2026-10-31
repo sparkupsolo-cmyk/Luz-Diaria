@@ -1,4 +1,4 @@
-import { Devotional } from '../types';
+import type { Devotional } from '../types/index.js';
 
 export const CURATED_DEVOTIONALS: Devotional[] = [
   {

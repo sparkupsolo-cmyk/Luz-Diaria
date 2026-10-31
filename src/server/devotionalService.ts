@@ -1,8 +1,8 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
-import { CURATED_DEVOTIONALS } from '../data/curatedDevotionals';
-import { Devotional } from '../types';
+import { CURATED_DEVOTIONALS } from '../data/curatedDevotionals.js';
+import type { Devotional } from '../types/index.js';
 
 /**
  * Returns current date string formatted as YYYY-MM-DD in America/Sao_Paulo timezone

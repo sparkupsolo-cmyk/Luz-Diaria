@@ -1,4 +1,4 @@
-import { getOrGenerateDailySharedDevotional, getSaoPauloDate } from '../../src/server/devotionalService';
+import { getOrGenerateDailySharedDevotional, getSaoPauloDate } from '../../src/server/devotionalService.js';
 
 export default async function handler(req: any, res: any) {
   // 1. Verify Vercel Cron Secret if configured
