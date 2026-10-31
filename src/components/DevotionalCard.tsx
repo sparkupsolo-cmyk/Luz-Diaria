@@ -4,14 +4,12 @@ import {
   Share2, 
   Volume2, 
   VolumeX, 
-  Sparkles, 
   Copy, 
   Check, 
   Calendar, 
   Tag, 
   Quote, 
   BookMarked,
-  Send,
   MessageCircle,
   Type
 } from 'lucide-react';
@@ -23,19 +21,13 @@ interface DevotionalCardProps {
   onToggleFavorite: (dev: Devotional) => void;
   isFavorite: boolean;
   onOpenShareModal: () => void;
-  onRegenerate: () => void;
-  onConfrontingRegenerate: () => void;
-  isGenerating: boolean;
 }
 
 export const DevotionalCard: React.FC<DevotionalCardProps> = ({
   devotional,
   onToggleFavorite,
   isFavorite,
-  onOpenShareModal,
-  onRegenerate,
-  onConfrontingRegenerate,
-  isGenerating
+  onOpenShareModal
 }) => {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -269,46 +261,33 @@ ${devotional.prayer}
         </div>
 
         {/* Share & Interact Toolbar */}
-        <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
+        <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100">
           
-          {/* WhatsApp Direct Share */}
-          <button
-            onClick={handleDirectWhatsApp}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm shadow-xs hover:shadow-md transition-all cursor-pointer"
-          >
-            <MessageCircle className="w-4 h-4 fill-white" />
-            <span>Enviar no WhatsApp</span>
-          </button>
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+            {/* WhatsApp Direct Share */}
+            <button
+              onClick={handleDirectWhatsApp}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm shadow-xs hover:shadow-md transition-all cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4 fill-white" />
+              <span>Enviar no WhatsApp</span>
+            </button>
 
-          {/* Social Card Studio Button */}
-          <button
-            onClick={onOpenShareModal}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium text-sm transition-all cursor-pointer"
-          >
-            <Share2 className="w-4 h-4 text-amber-700" />
-            <span>Criar Cartão / Redes Sociais</span>
-          </button>
+            {/* Social Card Studio Button */}
+            <button
+              onClick={onOpenShareModal}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 font-medium text-sm transition-all cursor-pointer"
+            >
+              <Share2 className="w-4 h-4 text-amber-700" />
+              <span>Criar Cartão / Redes Sociais</span>
+            </button>
+          </div>
 
-          {/* Confronting Devotional Button */}
-          <button
-            onClick={onConfrontingRegenerate}
-            disabled={isGenerating}
-            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-xl bg-stone-900 hover:bg-black text-white font-semibold text-xs shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50"
-            title="Receber uma palavra confrontadora das Escrituras que quebra o ego"
-          >
-            <span>⚔️</span>
-            <span>{isGenerating ? 'Sondando...' : 'Palavra Confrontadora'}</span>
-          </button>
-
-          {/* Regenerate or Fresh Theme */}
-          <button
-            onClick={onRegenerate}
-            disabled={isGenerating}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl border border-slate-200 hover:border-amber-400 text-slate-700 hover:text-amber-900 font-medium text-xs hover:bg-amber-50/50 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <Sparkles className={`w-3.5 h-3.5 text-amber-600 ${isGenerating ? 'animate-spin' : ''}`} />
-            <span>{isGenerating ? 'Gerando...' : 'Outra Palavra'}</span>
-          </button>
+          {/* Daily Shared Word Badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200/70 text-amber-900 text-xs font-medium">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span>Palavra Oficial do Dia • Compartilhada</span>
+          </div>
 
         </div>
 

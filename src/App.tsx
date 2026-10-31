@@ -5,7 +5,6 @@ import { DevotionalCard } from './components/DevotionalCard';
 import { BibleReadingTracker } from './components/BibleReadingTracker';
 import { ShareStudio } from './components/ShareStudio';
 import { MorningNotificationManager } from './components/MorningNotificationManager';
-import { DevotionalAIGenerator } from './components/DevotionalAIGenerator';
 import { FavoritesArchive } from './components/FavoritesArchive';
 import { AuthModal } from './components/AuthModal';
 import { UserProfileModal } from './components/UserProfileModal';
@@ -48,7 +47,6 @@ function AppContent() {
   const [bibleProgress, setBibleProgress] = useState<BibleProgress>(getStoredBibleProgress);
   const [favorites, setFavorites] = useState<Devotional[]>(getStoredFavorites);
   const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(getStoredNotificationConfig);
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
 
   // 1. Fetch Shared Community Devotional of the Day (America/Sao_Paulo) on mount
   useEffect(() => {
@@ -156,66 +154,7 @@ function AppContent() {
   // Check if current devotional is in favorites
   const isCurrentFavorite = favorites.some((f) => f.id === currentDevotional.id);
 
-  // Regenerate regular daily devotional via API
-  const handleRegenerate = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await fetch('/api/devotional/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          theme: 'Renovação Matinal',
-          mood: 'Esperançoso'
-        })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.devotional) {
-          setCurrentDevotional(data.devotional);
-          saveStoredCurrentDevotional(data.devotional);
-          saveDevotionalToCloud(data.devotional, user?.id);
-        }
-      }
-    } catch (e) {
-      console.error('Error regenerating devotional:', e);
-      const nextDev = CURATED_DEVOTIONALS[(Math.floor(Math.random() * CURATED_DEVOTIONALS.length))];
-      setCurrentDevotional(nextDev);
-      saveStoredCurrentDevotional(nextDev);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
-  // Regenerate confronting devotional directly
-  const handleConfrontingRegenerate = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await fetch('/api/devotional/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          theme: 'Tomar a Cruz Diária e Morrer para Si',
-          toneMode: 'confronting',
-          mood: 'Quebrantado'
-        })
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.devotional) {
-          setCurrentDevotional(data.devotional);
-          saveStoredCurrentDevotional(data.devotional);
-          saveDevotionalToCloud(data.devotional, user?.id);
-        }
-      }
-    } catch (e) {
-      console.error('Error generating confronting devotional:', e);
-      const nextDev = CURATED_DEVOTIONALS[(Math.floor(Math.random() * CURATED_DEVOTIONALS.length))];
-      setCurrentDevotional(nextDev);
-      saveStoredCurrentDevotional(nextDev);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   // Background Morning Check for Notifications
   useEffect(() => {
@@ -279,9 +218,6 @@ function AppContent() {
             onToggleFavorite={handleToggleFavorite}
             isFavorite={isCurrentFavorite}
             onOpenShareModal={() => setActiveTab('compartilhar')}
-            onRegenerate={handleRegenerate}
-            onConfrontingRegenerate={handleConfrontingRegenerate}
-            isGenerating={isGenerating}
           />
         )}
 
@@ -304,19 +240,6 @@ function AppContent() {
             config={notificationConfig}
             onUpdateConfig={handleUpdateNotificationConfig}
             todayDevotional={currentDevotional}
-          />
-        )}
-
-        {activeTab === 'ia-gerador' && (
-          <DevotionalAIGenerator
-            onDevotionalGenerated={(newDev) => {
-              setCurrentDevotional(newDev);
-              saveStoredCurrentDevotional(newDev);
-              saveDevotionalToCloud(newDev, user?.id);
-              setActiveTab('devocional');
-            }}
-            isGenerating={isGenerating}
-            setIsGenerating={setIsGenerating}
           />
         )}
 

@@ -27,12 +27,6 @@ export const Navigation: React.FC<NavigationProps> = ({
       badge: `${biblePercentage}%`
     },
     {
-      id: 'ia-gerador' as ActiveTab,
-      label: 'Palavra para o seu coração',
-      icon: Sparkles,
-      badge: null
-    },
-    {
       id: 'compartilhar' as ActiveTab,
       label: 'Compartilhar',
       icon: Share2,
@@ -91,7 +85,7 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-amber-200/80 shadow-lg px-2 py-1.5 flex items-center justify-around">
-        {tabs.slice(0, 5).map((tab) => {
+        {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -106,7 +100,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <Icon className="w-5 h-5" />
               </div>
               <span className="text-[10px] mt-0.5 leading-none text-center line-clamp-1">
-                {tab.label === 'Progresso Bíblico' ? 'Bíblia' : tab.label === 'Palavra para o seu coração' ? 'Para o Coração' : tab.label}
+                {tab.label === 'Progresso Bíblico' ? 'Bíblia' : tab.label}
               </span>
               {tab.id === 'leitura-biblica' && biblePercentage > 0 && (
                 <span className="absolute top-0 right-1 text-[9px] bg-amber-600 text-white px-1 rounded-full font-semibold">

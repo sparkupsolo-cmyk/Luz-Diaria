@@ -95,15 +95,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white"></span>
           </button>
 
-          {/* Generate Custom with AI */}
-          <button
-            onClick={() => setActiveTab('ia-gerador')}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-linear-to-r from-amber-600 to-amber-700 text-white text-xs font-medium shadow-xs hover:from-amber-700 hover:to-amber-800 transition-all hover:scale-102 cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-            <span>Palavra para o Coração</span>
-          </button>
-
           {/* User Account / Cloud Sync */}
           {user ? (
             <div className="flex items-center gap-1.5 pl-1">

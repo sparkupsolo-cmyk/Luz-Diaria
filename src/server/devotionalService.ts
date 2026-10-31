@@ -5,7 +5,9 @@ import { CURATED_DEVOTIONALS } from '../data/curatedDevotionals.js';
 import type { Devotional } from '../types/index.js';
 
 /**
- * Returns current date string formatted as YYYY-MM-DD in America/Sao_Paulo timezone
+ * Returns current date string formatted as YYYY-MM-DD in America/Sao_Paulo timezone.
+ * Guaranteeing that all daily checks, locks, and cron schedules strictly align with
+ * midnight in Brasília (UTC-3).
  */
 export function getSaoPauloDate(): string {
   return new Intl.DateTimeFormat('en-CA', { 
@@ -17,15 +19,23 @@ export function getSaoPauloDate(): string {
 }
 
 /**
+ * In-flight promise deduplication to prevent concurrent generations
+ * when multiple requests hit the server simultaneously.
+ */
+let inFlightDailyPromise: Promise<{ devotional: Devotional; source: string; publishDate: string }> | null = null;
+
+/**
  * Initialize Supabase Client for server-side usage.
  * Prioritizes SUPABASE_SERVICE_ROLE_KEY to perform administrative atomic locks and writes.
  * The service role key is NEVER exposed to the frontend/browser.
  */
 function getServerSupabaseClient(): SupabaseClient | null {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!url || !key || url.includes('your-project-id') || url.includes('[COLE') || key.includes('your-supabase') || key.includes('[COLE')) return null;
+  if (!url || !key || url.includes('your-project-id') || url.includes('[COLE') || key.includes('your-supabase') || key.includes('[COLE')) {
+    return null;
+  }
 
   return createClient(url, key, {
     auth: {
@@ -74,8 +84,8 @@ async function fetchDailyFromSupabase(supabase: SupabaseClient, publishDate: str
 
 /**
  * Atomically acquire generation lock in PostgreSQL using a unique lockToken.
- * Returns true only if lock was successfully acquired for this token via RPC.
- * Default TTL is 25 seconds (safe ceiling for server crashes).
+ * Returns true only if lock was successfully acquired for this token via RPC,
+ * or if no devotional exists yet for this date when RPC is absent.
  */
 async function acquireAtomicLock(
   supabase: SupabaseClient,
@@ -96,14 +106,20 @@ async function acquireAtomicLock(
       return data;
     }
     if (error) {
-      console.warn('[DevotionalService] RPC acquire_generation_lock error:', error.message);
+      console.warn('[DevotionalService] RPC acquire_generation_lock error (falling back to direct check):', error.message);
     }
   } catch (rpcErr) {
     console.warn('[DevotionalService] RPC acquire_generation_lock call failed:', rpcErr);
   }
 
-  // Falha na trava RPC: retorna false para evitar concorrência descontrolada
-  return false;
+  // Graceful fallback if RPC function is not installed:
+  // Check if today's record already exists. If yes, lock is refused (avoid duplicate).
+  try {
+    const existing = await fetchDailyFromSupabase(supabase, publishDate);
+    return !existing;
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -125,9 +141,6 @@ async function releaseAtomicLock(
     if (!error && typeof data === 'boolean') {
       return data;
     }
-    if (error) {
-      console.warn('[DevotionalService] RPC release_generation_lock error:', error.message);
-    }
   } catch (err) {
     console.warn('[DevotionalService] RPC release_generation_lock call failed:', err);
   }
@@ -136,9 +149,8 @@ async function releaseAtomicLock(
 }
 
 /**
- * Atomically publish devotional with fencing token verification and SELECT FOR UPDATE.
- * Prevents a stale/delayed worker from publishing after losing its lock.
- * NEVER performs alternative unverified direct writes if RPC lock check fails.
+ * Atomically publish devotional with fencing token verification or direct upsert.
+ * Ensures data is persisted into 'daily_devotionals' table with unique publish_date constraint.
  */
 async function publishAtomicDevotional(
   supabase: SupabaseClient,
@@ -146,6 +158,7 @@ async function publishAtomicDevotional(
   publishDate: string,
   devotional: Devotional
 ): Promise<boolean> {
+  // 1. Try atomic RPC procedure if installed
   try {
     const { data, error } = await supabase.rpc('publish_daily_devotional', {
       p_lock_token: lockToken,
@@ -165,14 +178,37 @@ async function publishAtomicDevotional(
     if (!error && typeof data === 'boolean') {
       return data;
     }
-    if (error) {
-      console.warn('[DevotionalService] RPC publish_daily_devotional error:', error.message);
-    }
   } catch (rpcErr) {
     console.warn('[DevotionalService] RPC publish_daily_devotional call failed:', rpcErr);
   }
 
-  // Se o RPC falhar ou o lock for rejeitado, NÃO executa escrita direta alternativa
+  // 2. Direct upsert into 'daily_devotionals' table with onConflict publish_date
+  try {
+    const { error: upsertErr } = await supabase
+      .from('daily_devotionals')
+      .upsert({
+        id: devotional.id,
+        publish_date: publishDate,
+        title: devotional.title,
+        verse: devotional.verse,
+        reference: devotional.reference,
+        version: devotional.version || 'ARA',
+        theme: devotional.theme,
+        reflection: devotional.reflection,
+        prayer: devotional.prayer,
+        action_step: devotional.actionStep,
+        tags: devotional.tags || []
+      }, { onConflict: 'publish_date' });
+
+    if (!upsertErr) {
+      console.log(`[DevotionalService] Daily devotional successfully saved to Supabase for ${publishDate}.`);
+      return true;
+    }
+    console.warn('[DevotionalService] Direct upsert into daily_devotionals error:', upsertErr.message);
+  } catch (directErr) {
+    console.warn('[DevotionalService] Direct upsert exception:', directErr);
+  }
+
   return false;
 }
 
@@ -194,8 +230,10 @@ function getGeminiClient(): GoogleGenAI | null {
 
 /**
  * Call Gemini to generate a convicting, Christ-centered daily devotional.
- * Enforces an internal timeout of 9,500ms (9.5s) to guarantee recovery
- * well before Vercel's 15s serverless execution limit.
+ * Uses a resilient model fallback cascade:
+ * 1. Primary: 'gemini-3.8-flash'
+ * 2. Secondary (if high demand / 503): 'gemini-3.1-flash-lite'
+ * Enforces an internal timeout to guarantee timely execution in serverless runtimes.
  */
 export async function generateDevotionalWithGemini(theme?: string): Promise<Devotional> {
   const ai = getGeminiClient();
@@ -221,19 +259,9 @@ Requisitos essenciais:
 9. "tags": Lista de 3 a 5 palavras-chave (ex: Cruz, Quebrantamento, Renúncia, Santidade).
 `;
 
-  // Internal 9.5s timeout wrapper to stay well below Vercel's 15s cutoff
-  const timeoutMs = 9500;
-  let timerId: any;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timerId = setTimeout(() => {
-      reject(new Error(`Timeout na chamada da API Gemini (${timeoutMs}ms excedidos)`));
-    }, timeoutMs);
-  });
-
-  const apiCallPromise = (async () => {
+  const generateWithModel = async (modelName: string): Promise<Devotional> => {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: modelName,
       contents: promptContext,
       config: {
         systemInstruction: 'Você é um pregador bíblico sóbrio, profundo e sem rodeios humanos. Você jamais massageia o ego humano. Você prega a soberania de Deus, a cruz de Cristo, a santidade e a morte do eu.',
@@ -260,7 +288,7 @@ Requisitos essenciais:
     });
 
     const text = response.text;
-    if (!text) throw new Error('Resposta vazia da API Gemini');
+    if (!text) throw new Error(`Resposta vazia da API Gemini com modelo ${modelName}`);
 
     const parsed = JSON.parse(text);
     return {
@@ -268,34 +296,44 @@ Requisitos essenciais:
       ...parsed,
       date: new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: 'numeric', month: 'long', year: 'numeric' })
     };
+  };
+
+  const timeoutMs = 9500;
+  let timerId: any;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error(`Timeout na chamada da API Gemini (${timeoutMs}ms excedidos)`));
+    }, timeoutMs);
+  });
+
+  const apiCallPromise = (async () => {
+    try {
+      return await generateWithModel('gemini-3.8-flash');
+    } catch (primaryErr: any) {
+      console.warn('[DevotionalService] Primary model gemini-3.8-flash failed/busy, attempting gemini-3.1-flash-lite fallback:', primaryErr?.message || primaryErr);
+      return await generateWithModel('gemini-3.1-flash-lite');
+    }
   })();
 
   try {
-    const result = await Promise.race([apiCallPromise, timeoutPromise]);
-    return result;
+    return await Promise.race([apiCallPromise, timeoutPromise]);
   } finally {
     clearTimeout(timerId);
   }
 }
 
 /**
- * Main Centralized Method: Get or Generate the shared daily devotional
- * Implements:
- * 1. America/Sao_Paulo calendar date reference.
- * 2. Instant cache check in Supabase daily_devotionals (never re-generates existing date).
- * 3. PostgreSQL atomic lock with unique ownership token and 25s TTL.
- * 4. Waiting loop capped at 7.5s with polling for concurrent visitors (staying within Vercel's 15s budget).
- * 5. Internal 9.5s Gemini timeout with immediate lock failure release.
- * 6. SELECT FOR UPDATE fencing token check on publish to prevent stale writes.
- * 7. Multi-level fallback on Gemini failure (latest published -> curated).
+ * Internal execution method for getting or generating the shared daily devotional
  */
-export async function getOrGenerateDailySharedDevotional(): Promise<{ devotional: Devotional; source: string; publishDate: string }> {
+async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional: Devotional; source: string; publishDate: string }> {
   const publishDate = getSaoPauloDate();
   const supabase = getServerSupabaseClient();
   const workerId = `worker-${Math.random().toString(36).substring(2, 9)}`;
   const lockToken = crypto.randomUUID();
 
-  // 1. Instant Cache Check: Se já existir devocional para a data, retorna imediatamente
+  // 1. Instant Cache Check: Se já existir devocional para a data de hoje (Brasília), retorna imediatamente.
+  // Nenhum devocional novo é gerado a cada acesso ou atualização de página!
   if (supabase) {
     const existing = await fetchDailyFromSupabase(supabase, publishDate);
     if (existing) {
@@ -307,12 +345,11 @@ export async function getOrGenerateDailySharedDevotional(): Promise<{ devotional
     }
   }
 
-  // 2. Não encontrado no cache: Tenta obter a trava atômica com token exclusivo
+  // 2. Não encontrado no cache: Tenta obter a trava de geração
   let hasLock = false;
   if (supabase) {
     hasLock = await acquireAtomicLock(supabase, publishDate, lockToken, workerId, 25);
   } else {
-    // Se Supabase ainda não foi configurado localmente, permite geração direta
     hasLock = true;
   }
 
@@ -336,30 +373,18 @@ export async function getOrGenerateDailySharedDevotional(): Promise<{ devotional
       }
     }
 
-    // Se o tempo de espera esgotou e ainda não existe devocional, tenta adquirir o lock novamente
+    // Se o tempo esgotou e ainda não existe registro, tenta adquirir novamente
     hasLock = await acquireAtomicLock(supabase, publishDate, lockToken, workerId, 25);
   }
 
-  // 4. Executa a chamada ao Gemini se for o proprietário legítimo da trava
+  // 4. Executa a geração com Gemini se detém a trava
   if (hasLock) {
     try {
       console.log(`[DevotionalService] Worker ${workerId} obteve o lock. Chamando Gemini para a data: ${publishDate}...`);
       const generated = await generateDevotionalWithGemini();
 
       if (supabase) {
-        // Publicação atômica com validação de fencing token e SELECT FOR UPDATE
-        const published = await publishAtomicDevotional(supabase, lockToken, publishDate, generated);
-        if (!published) {
-          console.warn('[DevotionalService] Publicação rejeitada pelo fencing token. Recuperando registro existente...');
-          const fallbackCached = await fetchDailyFromSupabase(supabase, publishDate);
-          if (fallbackCached) {
-            return {
-              devotional: fallbackCached,
-              source: 'supabase_cache_after_fencing_loss',
-              publishDate
-            };
-          }
-        }
+        await publishAtomicDevotional(supabase, lockToken, publishDate, generated);
       }
 
       return {
@@ -370,7 +395,6 @@ export async function getOrGenerateDailySharedDevotional(): Promise<{ devotional
     } catch (geminiError: any) {
       console.error('[DevotionalService] Falha ou timeout na geração com Gemini:', geminiError?.message || geminiError);
 
-      // Libera imediatamente a trava marcando-a como 'failed' para que o próximo acesso possa tentar
       if (supabase) {
         await releaseAtomicLock(supabase, publishDate, lockToken, 'failed');
       }
@@ -416,8 +440,12 @@ export async function getOrGenerateDailySharedDevotional(): Promise<{ devotional
     }
   }
 
-  // 6. Estratégia de contingência 2: Pool curado interno
-  const curated = CURATED_DEVOTIONALS[0];
+  // 6. Estratégia de contingência 2: Pool curado interno determinístico por data
+  // Garante que mesmo em modo fallback todos os usuários veem rigorosamente a mesma palavra no dia
+  const dateHash = publishDate.split('-').reduce((acc, part) => acc + (parseInt(part, 10) || 0), 0);
+  const curatedIndex = dateHash % CURATED_DEVOTIONALS.length;
+  const curated = CURATED_DEVOTIONALS[curatedIndex] || CURATED_DEVOTIONALS[0];
+
   return {
     devotional: {
       ...curated,
@@ -431,4 +459,21 @@ export async function getOrGenerateDailySharedDevotional(): Promise<{ devotional
     source: 'curated_fallback',
     publishDate
   };
+}
+
+/**
+ * Main Centralized Method: Get or Generate the shared daily devotional
+ * Protected by in-process promise deduplication and database-level concurrency locking.
+ */
+export async function getOrGenerateDailySharedDevotional(): Promise<{ devotional: Devotional; source: string; publishDate: string }> {
+  if (inFlightDailyPromise) {
+    console.log('[DevotionalService] In-flight shared promise already running. Reusing for caller...');
+    return inFlightDailyPromise;
+  }
+
+  inFlightDailyPromise = executeGetOrGenerateDailySharedDevotional().finally(() => {
+    inFlightDailyPromise = null;
+  });
+
+  return inFlightDailyPromise;
 }

@@ -28,7 +28,7 @@ export interface NotificationConfig {
   lastDeliveredDate?: string;
 }
 
-export type ActiveTab = 'devocional' | 'ia-gerador' | 'leitura-biblica' | 'compartilhar' | 'notificacoes' | 'favoritos';
+export type ActiveTab = 'devocional' | 'leitura-biblica' | 'compartilhar' | 'notificacoes' | 'favoritos';
 
 export type CardVisualTheme = 'aurora-dourada' | 'ceu-celestial' | 'noite-estrelada' | 'pergaminho-sagrado' | 'floresta-serena' | 'minimalista-ouro';
 
