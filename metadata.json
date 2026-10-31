@@ -1,0 +1,6 @@
+{
+  "name": "Luz Diária - Devocional IA & Leitura Bíblica",
+  "description": "Devocional diário inteligente gerado por IA com versículos, reflexões matinais, notificações, cartões de compartilhamento para WhatsApp e controle de progresso de leitura bíblica.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
