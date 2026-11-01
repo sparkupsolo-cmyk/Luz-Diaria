@@ -155,8 +155,8 @@ export const Header: React.FC<HeaderProps> = ({
             {/* PWA Install Button */}
             <PWAInstallButton variant="header" />
 
-            {/* User Account / Profile */}
-            {user ? (
+            {/* User Account / Profile (only if logged in) */}
+            {user && (
               <div className="flex items-center gap-1">
                 <button
                   onClick={onOpenProfileModal}
@@ -176,15 +176,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={onOpenAuthModal}
-                title="Entrar com Supabase"
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold cursor-pointer transition-colors shadow-xs"
-              >
-                <UserIcon className="w-3.5 h-3.5 text-amber-100" />
-                <span className="text-xs">Entrar</span>
-              </button>
             )}
 
             {/* Mobile Menu Hamburger Button */}

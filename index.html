@@ -3,6 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Filter harmless Vite HMR WebSocket closure in AI Studio sandbox
+      window.addEventListener('error', function(e) {
+        if (e && e.message && e.message.includes('WebSocket closed without opened')) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function(e) {
+        if (e && e.reason && String(e.reason).includes('WebSocket closed without opened')) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+    </script>
     <title>Luz Diária - Devocional IA & Leitura Bíblica</title>
     <meta name="description" content="Devocional diário inteligente gerado por IA com versículos, reflexões matinais, notificações, cartões de compartilhamento para WhatsApp e controle de progresso de leitura bíblica." />
     <meta property="og:title" content="Luz Diária - Devocional IA & Leitura Bíblica" />

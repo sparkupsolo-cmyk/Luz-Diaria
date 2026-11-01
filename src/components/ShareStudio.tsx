@@ -27,154 +27,99 @@ export const ShareStudio: React.FC<ShareStudioProps> = ({ devotional, onClose })
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Theme palettes and styling definitions - Uplifting, luminous, and full of hope
+  // Theme palettes and styling definitions - Exact original colors and themes
   const themesConfig: Record<CardVisualTheme, {
     name: string;
-    subtitle: string;
     bgColors: string[];
-    sunGlowColor: string;
-    cardBg: string;
-    cardBorder: string;
-    brandBadgeBg: string;
-    brandBadgeBorder: string;
-    brandBadgeText: string;
-    refPillBg: string;
-    refPillBorder: string;
-    refPillText: string;
     accentColor: string;
-    verseColor: string;
+    textColor: string;
     subtextColor: string;
-    reflectionBoxBg: string;
-    reflectionBoxBorder: string;
-    footerText: string;
-    sparkleColor: string;
+    borderColor: string;
   }> = {
     'aurora-dourada': {
-      name: 'Amanhecer Radiante',
-      subtitle: 'Luz do sol & esperança',
-      bgColors: ['#b45309', '#d97706', '#ea580c', '#f59e0b', '#fbbf24'],
-      sunGlowColor: 'rgba(254, 243, 199, 0.45)',
-      cardBg: 'rgba(255, 255, 255, 0.16)',
-      cardBorder: 'rgba(255, 255, 255, 0.45)',
-      brandBadgeBg: 'rgba(255, 255, 255, 0.25)',
-      brandBadgeBorder: 'rgba(255, 255, 255, 0.50)',
-      brandBadgeText: '#ffffff',
-      refPillBg: 'rgba(255, 255, 255, 0.28)',
-      refPillBorder: 'rgba(255, 255, 255, 0.60)',
-      refPillText: '#ffffff',
-      accentColor: '#fef08a',
-      verseColor: '#ffffff',
-      subtextColor: '#fef9c3',
-      reflectionBoxBg: 'rgba(0, 0, 0, 0.12)',
-      reflectionBoxBorder: 'rgba(255, 255, 255, 0.28)',
-      footerText: 'rgba(255, 255, 255, 0.90)',
-      sparkleColor: '#ffffff'
+      name: 'Amanhecer Dourado',
+      bgColors: ['#78350f', '#b45309', '#d97706', '#f59e0b'],
+      accentColor: '#fef3c7',
+      textColor: '#ffffff',
+      subtextColor: '#fde68a',
+      borderColor: 'rgba(254, 243, 199, 0.3)'
     },
     'ceu-celestial': {
-      name: 'Céu & Graça Divina',
-      subtitle: 'Paz serena & amplitude',
-      bgColors: ['#0369a1', '#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc'],
-      sunGlowColor: 'rgba(224, 242, 254, 0.50)',
-      cardBg: 'rgba(255, 255, 255, 0.18)',
-      cardBorder: 'rgba(255, 255, 255, 0.48)',
-      brandBadgeBg: 'rgba(255, 255, 255, 0.28)',
-      brandBadgeBorder: 'rgba(255, 255, 255, 0.55)',
-      brandBadgeText: '#ffffff',
-      refPillBg: 'rgba(255, 255, 255, 0.32)',
-      refPillBorder: 'rgba(255, 255, 255, 0.65)',
-      refPillText: '#ffffff',
-      accentColor: '#ffffff',
-      verseColor: '#ffffff',
-      subtextColor: '#f0f9ff',
-      reflectionBoxBg: 'rgba(2, 44, 75, 0.16)',
-      reflectionBoxBorder: 'rgba(255, 255, 255, 0.30)',
-      footerText: 'rgba(255, 255, 255, 0.92)',
-      sparkleColor: '#ffffff'
-    },
-    'floresta-serena': {
-      name: 'Vida & Pastos Verdes',
-      subtitle: 'Renovação & paz (Salmo 23)',
-      bgColors: ['#047857', '#059669', '#10b981', '#34d399', '#6ee7b7'],
-      sunGlowColor: 'rgba(236, 253, 245, 0.45)',
-      cardBg: 'rgba(255, 255, 255, 0.16)',
-      cardBorder: 'rgba(255, 255, 255, 0.45)',
-      brandBadgeBg: 'rgba(255, 255, 255, 0.25)',
-      brandBadgeBorder: 'rgba(255, 255, 255, 0.50)',
-      brandBadgeText: '#ffffff',
-      refPillBg: 'rgba(255, 255, 255, 0.28)',
-      refPillBorder: 'rgba(255, 255, 255, 0.60)',
-      refPillText: '#ffffff',
-      accentColor: '#d1fae5',
-      verseColor: '#ffffff',
-      subtextColor: '#ecfdf5',
-      reflectionBoxBg: 'rgba(2, 44, 34, 0.15)',
-      reflectionBoxBorder: 'rgba(255, 255, 255, 0.28)',
-      footerText: 'rgba(255, 255, 255, 0.88)',
-      sparkleColor: '#ffffff'
-    },
-    'pergaminho-sagrado': {
-      name: 'Manhã de Sol (Linho Claro)',
-      subtitle: 'Luminoso, acolhedor & limpo',
-      bgColors: ['#fffbeb', '#fef3c7', '#fde68a', '#fef3c7'],
-      sunGlowColor: 'rgba(245, 158, 11, 0.22)',
-      cardBg: 'rgba(255, 255, 255, 0.92)',
-      cardBorder: 'rgba(217, 119, 6, 0.35)',
-      brandBadgeBg: 'rgba(245, 158, 11, 0.18)',
-      brandBadgeBorder: 'rgba(217, 119, 6, 0.35)',
-      brandBadgeText: '#92400e',
-      refPillBg: 'rgba(217, 119, 6, 0.16)',
-      refPillBorder: 'rgba(217, 119, 6, 0.40)',
-      refPillText: '#78350f',
-      accentColor: '#b45309',
-      verseColor: '#451a03',
-      subtextColor: '#78350f',
-      reflectionBoxBg: 'rgba(254, 243, 199, 0.55)',
-      reflectionBoxBorder: 'rgba(217, 119, 6, 0.22)',
-      footerText: '#92400e',
-      sparkleColor: '#d97706'
-    },
-    'minimalista-ouro': {
-      name: 'Alegria & Alvorecer',
-      subtitle: 'Coral vivo & entusiasmo',
-      bgColors: ['#c2410c', '#ea580c', '#e11d48', '#f59e0b', '#fbbf24'],
-      sunGlowColor: 'rgba(254, 240, 138, 0.42)',
-      cardBg: 'rgba(255, 255, 255, 0.16)',
-      cardBorder: 'rgba(255, 255, 255, 0.45)',
-      brandBadgeBg: 'rgba(255, 255, 255, 0.25)',
-      brandBadgeBorder: 'rgba(255, 255, 255, 0.50)',
-      brandBadgeText: '#ffffff',
-      refPillBg: 'rgba(255, 255, 255, 0.28)',
-      refPillBorder: 'rgba(255, 255, 255, 0.58)',
-      refPillText: '#ffffff',
-      accentColor: '#fef08a',
-      verseColor: '#ffffff',
-      subtextColor: '#fff7ed',
-      reflectionBoxBg: 'rgba(0, 0, 0, 0.12)',
-      reflectionBoxBorder: 'rgba(255, 255, 255, 0.28)',
-      footerText: 'rgba(255, 255, 255, 0.88)',
-      sparkleColor: '#ffffff'
+      name: 'Céu Celestial',
+      bgColors: ['#0f172a', '#1e293b', '#0369a1', '#38bdf8'],
+      accentColor: '#bae6fd',
+      textColor: '#ffffff',
+      subtextColor: '#e0f2fe',
+      borderColor: 'rgba(186, 230, 253, 0.3)'
     },
     'noite-estrelada': {
-      name: 'Paz Celestial & Estrelas',
-      subtitle: 'Azul safira & constelações',
-      bgColors: ['#1e1b4b', '#312e81', '#3730a3', '#4f46e5', '#6366f1'],
-      sunGlowColor: 'rgba(199, 210, 254, 0.38)',
-      cardBg: 'rgba(255, 255, 255, 0.14)',
-      cardBorder: 'rgba(255, 255, 255, 0.38)',
-      brandBadgeBg: 'rgba(255, 255, 255, 0.22)',
-      brandBadgeBorder: 'rgba(255, 255, 255, 0.48)',
-      brandBadgeText: '#ffffff',
-      refPillBg: 'rgba(255, 255, 255, 0.26)',
-      refPillBorder: 'rgba(255, 255, 255, 0.52)',
-      refPillText: '#ffffff',
-      accentColor: '#fef08a',
-      verseColor: '#ffffff',
-      subtextColor: '#e0e7ff',
-      reflectionBoxBg: 'rgba(15, 23, 42, 0.25)',
-      reflectionBoxBorder: 'rgba(255, 255, 255, 0.25)',
-      footerText: 'rgba(255, 255, 255, 0.88)',
-      sparkleColor: '#fef08a'
+      name: 'Noite Sagrada',
+      bgColors: ['#09090b', '#18181b', '#312e81', '#4c1d95'],
+      accentColor: '#e9d5ff',
+      textColor: '#ffffff',
+      subtextColor: '#c4b5fd',
+      borderColor: 'rgba(233, 213, 255, 0.3)'
+    },
+    'pergaminho-sagrado': {
+      name: 'Pergaminho Rústico',
+      bgColors: ['#fef3c7', '#fde68a', '#f5d082', '#ebd197'],
+      accentColor: '#78350f',
+      textColor: '#451a03',
+      subtextColor: '#78350f',
+      borderColor: 'rgba(120, 53, 15, 0.25)'
+    },
+    'floresta-serena': {
+      name: 'Paz & Esmeralda',
+      bgColors: ['#064e3b', '#065f46', '#047857', '#10b981'],
+      accentColor: '#a7f3d0',
+      textColor: '#ffffff',
+      subtextColor: '#d1fae5',
+      borderColor: 'rgba(167, 243, 208, 0.3)'
+    },
+    'minimalista-ouro': {
+      name: 'Elegância Minimalista',
+      bgColors: ['#1c1917', '#292524', '#44403c', '#1c1917'],
+      accentColor: '#facc15',
+      textColor: '#ffffff',
+      subtextColor: '#fde047',
+      borderColor: 'rgba(250, 204, 21, 0.35)'
     }
+  };
+
+  // Format date helper for the day of the month
+  const formatCardDate = (rawDate: string): string => {
+    if (!rawDate) return '';
+    if (rawDate.toLowerCase().includes(' de ')) {
+      return rawDate.toUpperCase();
+    }
+    if (rawDate.includes('/')) {
+      const parts = rawDate.split('/');
+      if (parts.length >= 2) {
+        const day = parts[0].padStart(2, '0');
+        const monthNum = parseInt(parts[1], 10);
+        const months = [
+          'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
+          'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
+        ];
+        const monthName = months[monthNum - 1] || parts[1];
+        const year = parts[2] ? ` DE ${parts[2]}` : '';
+        return `${day} DE ${monthName}${year}`;
+      }
+    }
+    if (rawDate.includes('-')) {
+      const parts = rawDate.split('-');
+      if (parts.length === 3) {
+        const day = parts[2].padStart(2, '0');
+        const monthNum = parseInt(parts[1], 10);
+        const months = [
+          'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
+          'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
+        ];
+        const monthName = months[monthNum - 1] || parts[1];
+        return `${day} DE ${monthName} DE ${parts[0]}`;
+      }
+    }
+    return rawDate.toUpperCase();
   };
 
   // Dimensions based on format
@@ -211,7 +156,7 @@ export const ShareStudio: React.FC<ShareStudioProps> = ({ devotional, onClose })
     }
   };
 
-  // Draw card on HTML5 canvas with vibrant, inspiring, and dynamic aesthetics
+  // Draw card on HTML5 canvas
   const drawCard = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -224,7 +169,7 @@ export const ShareStudio: React.FC<ShareStudioProps> = ({ devotional, onClose })
 
     const theme = themesConfig[selectedTheme];
 
-    // 1. Draw radiant background gradient
+    // 1. Draw original gradient background
     const grad = ctx.createLinearGradient(0, 0, width, height);
     theme.bgColors.forEach((color, i) => {
       grad.addColorStop(i / (theme.bgColors.length - 1), color);
@@ -232,73 +177,98 @@ export const ShareStudio: React.FC<ShareStudioProps> = ({ devotional, onClose })
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
 
-    // 2. Radiant sunburst / morning light flare at top center
-    const radialSun = ctx.createRadialGradient(width / 2, height * 0.12, 10, width / 2, height * 0.12, width * 0.65);
-    radialSun.addColorStop(0, theme.sunGlowColor);
-    radialSun.addColorStop(1, 'rgba(255, 255, 255, 0)');
-    ctx.fillStyle = radialSun;
+    // Subtle radial light glow in the top center
+    const radial = ctx.createRadialGradient(width / 2, height * 0.25, 50, width / 2, height * 0.25, width * 0.7);
+    radial.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+    radial.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = radial;
     ctx.fillRect(0, 0, width, height);
 
-    // 3. Gentle ambient sparkles to bring life, joy, and inspiration
-    const sparkles = [
-      { x: width * 0.12, y: height * 0.08, s: width * 0.016, alpha: 0.65 },
-      { x: width * 0.88, y: height * 0.09, s: width * 0.014, alpha: 0.70 },
-      { x: width * 0.08, y: height * 0.32, s: width * 0.012, alpha: 0.45 },
-      { x: width * 0.92, y: height * 0.38, s: width * 0.015, alpha: 0.55 },
-      { x: width * 0.14, y: height * 0.88, s: width * 0.013, alpha: 0.50 },
-      { x: width * 0.86, y: height * 0.85, s: width * 0.016, alpha: 0.65 },
-    ];
-    sparkles.forEach(sp => {
-      ctx.save();
-      ctx.globalAlpha = sp.alpha;
-      ctx.fillStyle = theme.sparkleColor;
-      ctx.font = `${Math.round(sp.s)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('✦', sp.x, sp.y);
-      ctx.restore();
-    });
+    // 2. Draw refined frame border (original dynamics)
+    const margin = width * 0.06;
+    ctx.strokeStyle = theme.borderColor;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(margin, margin, width - margin * 2, height - margin * 2);
 
-    // 4. Modern Frosted Glass Card Architecture (No funeral rectangular frames or corner brackets!)
-    const cardMargin = width * 0.055;
-    const cardY = height * (selectedFormat === 'story' ? 0.045 : selectedFormat === 'feed' ? 0.04 : 0.045);
-    const cardW = width - cardMargin * 2;
-    const cardH = height - cardY * 2;
-    const cardRadius = width * 0.045;
-
-    drawRoundedRect(ctx, cardMargin, cardY, cardW, cardH, cardRadius);
-    ctx.fillStyle = theme.cardBg;
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = theme.cardBorder;
+    // Subtle inner corner accents (original dynamics)
+    const cornerSize = width * 0.03;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = theme.accentColor;
+    
+    // Top-left
+    ctx.beginPath();
+    ctx.moveTo(margin, margin + cornerSize);
+    ctx.lineTo(margin, margin);
+    ctx.lineTo(margin + cornerSize, margin);
     ctx.stroke();
 
-    // 5. Header: Floating Brand Pill Badge "☀️ LUZ DIÁRIA"
-    const badgeW = width * 0.48;
-    const badgeH = height * (selectedFormat === 'story' ? 0.038 : selectedFormat === 'feed' ? 0.050 : 0.062);
+    // Top-right
+    ctx.beginPath();
+    ctx.moveTo(width - margin - cornerSize, margin);
+    ctx.lineTo(width - margin, margin);
+    ctx.lineTo(width - margin, margin + cornerSize);
+    ctx.stroke();
+
+    // Bottom-left
+    ctx.beginPath();
+    ctx.moveTo(margin, height - margin - cornerSize);
+    ctx.lineTo(margin, height - margin);
+    ctx.lineTo(margin + cornerSize, height - margin);
+    ctx.stroke();
+
+    // Bottom-right
+    ctx.beginPath();
+    ctx.moveTo(width - margin - cornerSize, height - margin);
+    ctx.lineTo(width - margin, height - margin);
+    ctx.lineTo(width - margin, height - margin - cornerSize);
+    ctx.stroke();
+
+    // 3. Dynamic Title & Day of the Month (Data / Dia do Mês)
+    // Brand Pill: "☀️ LUZ DIÁRIA"
+    const badgeW = width * 0.42;
+    const badgeH = height * (selectedFormat === 'story' ? 0.034 : selectedFormat === 'feed' ? 0.044 : 0.052);
     const badgeX = width / 2 - badgeW / 2;
-    const badgeY = cardY + height * (selectedFormat === 'story' ? 0.035 : selectedFormat === 'feed' ? 0.032 : 0.035);
+    const badgeY = margin + height * (selectedFormat === 'story' ? 0.030 : selectedFormat === 'feed' ? 0.026 : 0.028);
 
     drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, badgeH / 2);
-    ctx.fillStyle = theme.brandBadgeBg;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
     ctx.fill();
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = theme.brandBadgeBorder;
+    ctx.strokeStyle = theme.borderColor;
     ctx.stroke();
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = theme.brandBadgeText;
-    ctx.font = `700 ${Math.round(width * 0.024)}px 'Plus Jakarta Sans', sans-serif`;
+    ctx.fillStyle = theme.accentColor;
+    ctx.font = `700 ${Math.round(width * 0.022)}px 'Plus Jakarta Sans', sans-serif`;
     ctx.letterSpacing = '3px';
     ctx.fillText('☀️ LUZ DIÁRIA', width / 2, badgeY + badgeH / 2);
 
-    // Subtitle & Date
-    const dateY = badgeY + badgeH + height * (selectedFormat === 'story' ? 0.022 : selectedFormat === 'feed' ? 0.020 : 0.025);
+    // Devotional Title
+    const titleY = badgeY + badgeH + height * (selectedFormat === 'story' ? 0.026 : selectedFormat === 'feed' ? 0.024 : 0.028);
+    ctx.fillStyle = theme.textColor;
+    ctx.font = `600 ${Math.round(width * 0.026)}px 'Cinzel', serif`;
+    ctx.letterSpacing = '2px';
+    const displayTitle = devotional.title || 'DEVOCIONAL DIÁRIO';
+    ctx.fillText(displayTitle, width / 2, titleY);
+
+    // Day of the Month (Data / Dia do Mês)
+    const dateY = titleY + height * (selectedFormat === 'story' ? 0.024 : selectedFormat === 'feed' ? 0.022 : 0.026);
+    const formattedDate = formatCardDate(devotional.date);
     ctx.fillStyle = theme.subtextColor;
     ctx.font = `500 ${Math.round(width * 0.019)}px 'Plus Jakarta Sans', sans-serif`;
-    ctx.letterSpacing = '1px';
-    ctx.fillText(`DEVOCIONAL DIÁRIO • ${devotional.date}`, width / 2, dateY);
+    ctx.letterSpacing = '2px';
+    ctx.fillText(`✦ ${formattedDate} ✦`, width / 2, dateY);
+
+    // Decorative quote mark
+    ctx.fillStyle = theme.accentColor;
+    ctx.globalAlpha = 0.35;
+    ctx.font = `italic ${Math.round(width * 0.12)}px 'Lora', serif`;
+    const quoteY = includeReflectionSnippet 
+      ? (selectedFormat === 'story' ? height * 0.22 : selectedFormat === 'feed' ? height * 0.18 : height * 0.16)
+      : (selectedFormat === 'story' ? height * 0.28 : height * 0.26);
+    ctx.fillText('“', width / 2, quoteY);
+    ctx.globalAlpha = 1.0;
 
     // Helper to calculate wrapped lines for text
     const getWrappedLines = (text: string, maxWidth: number): string[] => {
@@ -333,125 +303,85 @@ export const ShareStudio: React.FC<ShareStudioProps> = ({ devotional, onClose })
       return currentY;
     };
 
-    // 6. Inspiring "✦ PALAVRA DE HOJE ✦" Section Tag
-    const tagY = dateY + height * (selectedFormat === 'story' ? 0.038 : selectedFormat === 'feed' ? 0.032 : 0.035);
-    ctx.fillStyle = theme.accentColor;
-    ctx.font = `600 ${Math.round(width * 0.020)}px 'Plus Jakarta Sans', sans-serif`;
-    ctx.letterSpacing = '3px';
-    ctx.fillText('✦ PALAVRA DE HOJE ✦', width / 2, tagY);
-
-    // 7. Scripture Verse (Warm, inspiring, literary typography in Lora)
-    const contentMaxWidth = cardW - width * 0.08;
+    // 4. Scripture Verse
+    ctx.fillStyle = theme.textColor;
     const verseFontSize = includeReflectionSnippet
       ? (selectedFormat === 'story' 
-          ? Math.round(width * 0.038) 
+          ? Math.round(width * 0.040) 
           : selectedFormat === 'feed' 
-          ? Math.round(width * 0.032) 
+          ? Math.round(width * 0.034) 
           : Math.round(width * 0.028))
       : (selectedFormat === 'story' 
-          ? Math.round(width * 0.048) 
+          ? Math.round(width * 0.046) 
           : selectedFormat === 'feed' 
-          ? Math.round(width * 0.042) 
-          : Math.round(width * 0.036));
-
-    const verseLineHeight = Math.round(verseFontSize * 1.45);
+          ? Math.round(width * 0.044) 
+          : Math.round(width * 0.038));
+    
     ctx.font = `italic 500 ${verseFontSize}px 'Lora', Georgia, serif`;
-    ctx.fillStyle = theme.verseColor;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
+    const contentMaxWidth = width - margin * 3.5;
+    const verseStartY = includeReflectionSnippet
+      ? (selectedFormat === 'story' ? height * 0.26 : selectedFormat === 'feed' ? height * 0.22 : height * 0.20)
+      : (selectedFormat === 'story' ? height * 0.33 : height * 0.31);
+    const verseLineHeight = Math.round(verseFontSize * 1.42);
 
-    const verseStartY = tagY + height * (selectedFormat === 'story' ? 0.028 : selectedFormat === 'feed' ? 0.024 : 0.028);
     const afterVerseY = wrapText(`"${devotional.verse}"`, width / 2, verseStartY, contentMaxWidth, verseLineHeight);
 
-    // 8. Scripture Reference Capsule Chip (Modern rounded pill)
-    const refPillText = `📖 ${devotional.reference} (${devotional.version})`;
-    ctx.font = `700 ${Math.round(width * 0.022)}px 'Plus Jakarta Sans', sans-serif`;
-    ctx.letterSpacing = '1.5px';
-    const refMetrics = ctx.measureText(refPillText);
-    const refPillW = Math.max(refMetrics.width + width * 0.08, width * 0.38);
-    const refPillH = height * (selectedFormat === 'story' ? 0.036 : selectedFormat === 'feed' ? 0.046 : 0.058);
-    const refPillX = width / 2 - refPillW / 2;
-    const refPillY = afterVerseY + height * (selectedFormat === 'story' ? 0.020 : selectedFormat === 'feed' ? 0.018 : 0.022);
+    // 5. Reference
+    ctx.fillStyle = theme.accentColor;
+    const refFontSize = Math.round(width * 0.026);
+    ctx.font = `700 ${refFontSize}px 'Cinzel', serif`;
+    ctx.letterSpacing = '2px';
+    const refY = afterVerseY + height * 0.018;
+    ctx.fillText(`— ${devotional.reference} (${devotional.version}) —`, width / 2, refY);
 
-    drawRoundedRect(ctx, refPillX, refPillY, refPillW, refPillH, refPillH / 2);
-    ctx.fillStyle = theme.refPillBg;
-    ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = theme.refPillBorder;
-    ctx.stroke();
+    // Footer Watermark Y
+    const footerY = height - margin - height * 0.04;
 
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = theme.refPillText;
-    ctx.fillText(refPillText, width / 2, refPillY + refPillH / 2);
-
-    // Footer Position
-    const footerY = cardY + cardH - height * (selectedFormat === 'story' ? 0.032 : selectedFormat === 'feed' ? 0.030 : 0.035);
-
-    // 9. Reflection Section (In an uplifting, dedicated frosted sub-card)
+    // 6. Full Reflection Text (Never truncated)
     if (includeReflectionSnippet) {
-      const refBoxX = cardMargin + width * 0.035;
-      const refBoxW = cardW - width * 0.07;
-      const refBoxY = refPillY + refPillH + height * (selectedFormat === 'story' ? 0.026 : selectedFormat === 'feed' ? 0.022 : 0.024);
-      const refBoxH = footerY - height * 0.025 - refBoxY;
+      const dividerY = refY + height * 0.022;
+      
+      // Divider line
+      ctx.strokeStyle = theme.borderColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(width / 2 - width * 0.16, dividerY);
+      ctx.lineTo(width / 2 + width * 0.16, dividerY);
+      ctx.stroke();
 
-      if (refBoxH > height * 0.12) {
-        // Draw modern frosted reflection container
-        drawRoundedRect(ctx, refBoxX, refBoxY, refBoxW, refBoxH, width * 0.035);
-        ctx.fillStyle = theme.reflectionBoxBg;
-        ctx.fill();
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = theme.reflectionBoxBorder;
-        ctx.stroke();
+      const reflectionStartY = dividerY + height * 0.032;
+      const availableReflectionHeight = footerY - height * 0.035 - reflectionStartY;
+      const fullReflection = devotional.reflection.trim();
 
-        // Reflection Header Label
-        const refHeaderY = refBoxY + height * (selectedFormat === 'story' ? 0.024 : selectedFormat === 'feed' ? 0.026 : 0.032);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = theme.accentColor;
-        ctx.font = `600 ${Math.round(width * 0.019)}px 'Plus Jakarta Sans', sans-serif`;
-        ctx.letterSpacing = '2px';
-        ctx.fillText('🌿 REFLEXÃO & ESPERANÇA', width / 2, refHeaderY);
+      // Dynamically calculate ideal font size so the entire reflection text always fits completely
+      let snippetFontSize = selectedFormat === 'story'
+        ? Math.round(width * 0.026)
+        : selectedFormat === 'feed'
+        ? Math.round(width * 0.023)
+        : Math.round(width * 0.020);
+      let snippetLineHeight = Math.round(snippetFontSize * 1.48);
 
-        // Calculate and dynamically scale font size so 100% of reflection fits cleanly
-        const reflectionTextStartY = refHeaderY + height * (selectedFormat === 'story' ? 0.022 : selectedFormat === 'feed' ? 0.022 : 0.028);
-        const availableReflectionH = (refBoxY + refBoxH) - reflectionTextStartY - height * 0.020;
-        const fullReflection = devotional.reflection.trim();
-        const refTextMaxWidth = refBoxW - width * 0.06;
-
-        let snippetFontSize = selectedFormat === 'story'
-          ? Math.round(width * 0.025)
-          : selectedFormat === 'feed'
-          ? Math.round(width * 0.022)
-          : Math.round(width * 0.019);
-        let snippetLineHeight = Math.round(snippetFontSize * 1.48);
-
-        for (let attempt = 0; attempt < 12; attempt++) {
-          ctx.font = `400 ${snippetFontSize}px 'Plus Jakarta Sans', sans-serif`;
-          const testLines = getWrappedLines(fullReflection, refTextMaxWidth);
-          const totalH = testLines.length * snippetLineHeight;
-          if (totalH <= availableReflectionH || snippetFontSize <= Math.round(width * 0.014)) {
-            break;
-          }
-          snippetFontSize -= 1;
-          snippetLineHeight = Math.round(snippetFontSize * 1.44);
-        }
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.fillStyle = theme.subtextColor;
+      for (let attempt = 0; attempt < 12; attempt++) {
         ctx.font = `400 ${snippetFontSize}px 'Plus Jakarta Sans', sans-serif`;
-        wrapText(fullReflection, width / 2, reflectionTextStartY, refTextMaxWidth, snippetLineHeight);
+        const testLines = getWrappedLines(fullReflection, contentMaxWidth * 0.94);
+        const totalHeight = testLines.length * snippetLineHeight;
+        if (totalHeight <= availableReflectionHeight || snippetFontSize <= Math.round(width * 0.015)) {
+          break;
+        }
+        snippetFontSize -= 1;
+        snippetLineHeight = Math.round(snippetFontSize * 1.44);
       }
+
+      ctx.fillStyle = theme.subtextColor;
+      ctx.font = `400 ${snippetFontSize}px 'Plus Jakarta Sans', sans-serif`;
+      wrapText(fullReflection, width / 2, reflectionStartY, contentMaxWidth * 0.94, snippetLineHeight);
     }
 
-    // 10. Footer Watermark & Blessing
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = theme.footerText;
-    ctx.font = `500 ${Math.round(width * 0.021)}px 'Plus Jakarta Sans', sans-serif`;
+    // 7. Footer Watermark / Signature
+    ctx.fillStyle = theme.accentColor;
+    ctx.font = `500 ${Math.round(width * 0.022)}px 'Plus Jakarta Sans', sans-serif`;
     ctx.letterSpacing = '1px';
-    ctx.fillText('☀️ Que a paz e a luz de Deus iluminem o seu dia • Luz Diária', width / 2, footerY);
+    ctx.fillText('Compartilhado com amor • Luz Diária Devocionais', width / 2, footerY);
   };
 
   useEffect(() => {
@@ -673,14 +603,9 @@ ${devotional.actionStep}
                       className="w-7 h-7 rounded-full border border-black/10 shrink-0 shadow-2xs"
                       style={{ background: `linear-gradient(135deg, ${item.bgColors[0]}, ${item.bgColors[item.bgColors.length - 1]})` }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs font-semibold text-slate-800 line-clamp-1 block">
-                        {item.name}
-                      </span>
-                      <span className="text-[10px] text-slate-500 line-clamp-1 block">
-                        {item.subtitle}
-                      </span>
-                    </div>
+                    <span className="text-xs font-semibold text-slate-800 line-clamp-1">
+                      {item.name}
+                    </span>
                   </button>
                 );
               })}
