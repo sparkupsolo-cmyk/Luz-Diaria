@@ -21,7 +21,8 @@ import {
   saveBibleProgressToCloud,
   fetchTodaySharedDevotional
 } from './lib/supabase';
-import { CURATED_DEVOTIONALS } from './data/curatedDevotionals';
+import { History } from 'lucide-react';
+import { DevotionalSkeleton } from './components/DevotionalSkeleton';
 import { TOTAL_BIBLE_CHAPTERS } from './data/bibleBooks';
 import { Devotional, BibleProgress, NotificationConfig, ActiveTab } from './types';
 import {
@@ -42,24 +43,53 @@ function AppContent() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
-  const [currentDevotional, setCurrentDevotional] = useState<Devotional>(() => {
-    const saved = getStoredCurrentDevotional();
-    return saved || CURATED_DEVOTIONALS[0];
-  });
+  // Official daily shared devotional from Supabase
+  const [todayDevotional, setTodayDevotional] = useState<Devotional | null>(null);
+  // Current devotional being read (defaults to today's, or an archived devotional chosen from history/favorites)
+  const [currentDevotional, setCurrentDevotional] = useState<Devotional | null>(null);
+  const [isLoadingDevotional, setIsLoadingDevotional] = useState<boolean>(true);
+  const [devotionalError, setDevotionalError] = useState<string | null>(null);
+
   const [bibleProgress, setBibleProgress] = useState<BibleProgress>(getStoredBibleProgress);
   const [favorites, setFavorites] = useState<Devotional[]>(getStoredFavorites);
   const [notificationConfig, setNotificationConfig] = useState<NotificationConfig>(getStoredNotificationConfig);
 
-  // 1. Fetch Shared Community Devotional of the Day (America/Sao_Paulo) on mount
-  useEffect(() => {
-    fetchTodaySharedDevotional().then((result) => {
+  // 1. Fetch Official Community Shared Devotional from Supabase (/api/devotional/today) on mount
+  const loadOfficialTodayDevotional = async () => {
+    setIsLoadingDevotional(true);
+    setDevotionalError(null);
+    try {
+      const result = await fetchTodaySharedDevotional();
       if (result?.devotional) {
+        setTodayDevotional(result.devotional);
         setCurrentDevotional(result.devotional);
-        saveStoredCurrentDevotional(result.devotional);
+        saveStoredCurrentDevotional(result.devotional, result.publishDate);
+      } else {
+        // Fallback: only use stored devotional if it matches today's date in America/Sao_Paulo
+        const cached = getStoredCurrentDevotional();
+        if (cached) {
+          setTodayDevotional(cached);
+          setCurrentDevotional(cached);
+        } else {
+          setDevotionalError('Não foi possível obter o devocional oficial de hoje do Supabase. Verifique sua conexão e tente novamente.');
+        }
       }
-    }).catch((err) => {
-      console.warn('Could not fetch shared daily devotional on mount:', err);
-    });
+    } catch (err: any) {
+      console.warn('Erro ao consultar /api/devotional/today:', err);
+      const cached = getStoredCurrentDevotional();
+      if (cached) {
+        setTodayDevotional(cached);
+        setCurrentDevotional(cached);
+      } else {
+        setDevotionalError('Erro ao consultar o devocional diário no servidor. Por favor, tente novamente.');
+      }
+    } finally {
+      setIsLoadingDevotional(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOfficialTodayDevotional();
   }, []);
 
   // Sync with Supabase on user sign-in
@@ -154,13 +184,19 @@ function AppContent() {
   const biblePercentage = Math.round((totalReadChapters / TOTAL_BIBLE_CHAPTERS) * 100);
 
   // Check if current devotional is in favorites
-  const isCurrentFavorite = favorites.some((f) => f.id === currentDevotional.id);
+  const isCurrentFavorite = currentDevotional ? favorites.some((f) => f.id === currentDevotional.id) : false;
 
-
+  const handleSelectTab = (tab: ActiveTab) => {
+    // When navigating to 'devocional', if user was viewing an archived one, return to today's shared devotional
+    if (tab === 'devocional' && todayDevotional) {
+      setCurrentDevotional(todayDevotional);
+    }
+    setActiveTab(tab);
+  };
 
   // Background Morning Check for Notifications
   useEffect(() => {
-    if (!notificationConfig.enabled) return;
+    if (!notificationConfig.enabled || !currentDevotional) return;
 
     const checkMorningNotification = () => {
       const now = new Date();
@@ -198,7 +234,7 @@ function AppContent() {
       {/* Top Header with User Account Button & Mobile Menu Drawer */}
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSelectTab}
         readingStreak={bibleProgress.readingStreak || 1}
         favoritesCount={favorites.length}
         biblePercentage={biblePercentage}
@@ -210,19 +246,45 @@ function AppContent() {
       {/* Main Navigation (Desktop Pill Bar + Mobile Top Strip + Mobile Bottom Bar) */}
       <Navigation
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSelectTab}
         biblePercentage={biblePercentage}
       />
 
       {/* Main Body */}
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-4 pb-28 md:pb-12">
         {activeTab === 'devocional' && (
-          <DevotionalCard
-            devotional={currentDevotional}
-            onToggleFavorite={handleToggleFavorite}
-            isFavorite={isCurrentFavorite}
-            onOpenShareModal={() => setActiveTab('compartilhar')}
-          />
+          isLoadingDevotional || !currentDevotional ? (
+            <DevotionalSkeleton
+              error={devotionalError}
+              onRetry={loadOfficialTodayDevotional}
+            />
+          ) : (
+            <div className="space-y-4">
+              {todayDevotional && currentDevotional.id !== todayDevotional.id && (
+                <div className="max-w-3xl mx-auto p-3.5 rounded-2xl bg-amber-100/90 border border-amber-300 flex items-center justify-between gap-3 text-xs shadow-2xs animate-in fade-in">
+                  <div className="flex items-center gap-2.5 text-amber-950 min-w-0">
+                    <History className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span className="truncate">
+                      Você está visualizando um devocional arquivado ({currentDevotional.date || currentDevotional.title})
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setCurrentDevotional(todayDevotional)}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors cursor-pointer shrink-0 shadow-xs"
+                  >
+                    Voltar à Palavra de Hoje
+                  </button>
+                </div>
+              )}
+
+              <DevotionalCard
+                devotional={currentDevotional}
+                onToggleFavorite={handleToggleFavorite}
+                isFavorite={isCurrentFavorite}
+                onOpenShareModal={() => handleSelectTab('compartilhar')}
+              />
+            </div>
+          )
         )}
 
         {activeTab === 'leitura-biblica' && (
@@ -233,18 +295,32 @@ function AppContent() {
         )}
 
         {activeTab === 'compartilhar' && (
-          <ShareStudio
-            devotional={currentDevotional}
-            onClose={() => setActiveTab('devocional')}
-          />
+          currentDevotional ? (
+            <ShareStudio
+              devotional={currentDevotional}
+              onClose={() => handleSelectTab('devocional')}
+            />
+          ) : (
+            <DevotionalSkeleton
+              error={devotionalError}
+              onRetry={loadOfficialTodayDevotional}
+            />
+          )
         )}
 
         {activeTab === 'notificacoes' && (
-          <MorningNotificationManager
-            config={notificationConfig}
-            onUpdateConfig={handleUpdateNotificationConfig}
-            todayDevotional={currentDevotional}
-          />
+          currentDevotional ? (
+            <MorningNotificationManager
+              config={notificationConfig}
+              onUpdateConfig={handleUpdateNotificationConfig}
+              todayDevotional={currentDevotional}
+            />
+          ) : (
+            <DevotionalSkeleton
+              error={devotionalError}
+              onRetry={loadOfficialTodayDevotional}
+            />
+          )
         )}
 
         {activeTab === 'favoritos' && (

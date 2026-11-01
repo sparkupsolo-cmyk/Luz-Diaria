@@ -24,6 +24,39 @@ export function getSaoPauloDate(): string {
  */
 let inFlightDailyPromise: Promise<{ devotional: Devotional; source: string; publishDate: string }> | null = null;
 
+interface CachedDailyResult {
+  devotional: Devotional;
+  source: string;
+  publishDate: string;
+}
+
+/**
+ * Server in-memory daily cache. Once determined for a given day (whether from Supabase,
+ * Gemini, or deterministic fallback), it is cached in RAM to prevent repeated external
+ * calls and ensure 100% content consistency for all incoming requests.
+ */
+let memoryDailyCache: {
+  publishDate: string;
+  result: CachedDailyResult;
+} | null = null;
+
+/**
+ * Checks whether the server environment has administrative SUPABASE_SERVICE_ROLE_KEY.
+ * The service_role key is required to invoke administrative lock functions and write to daily_devotionals.
+ * If only the public anon key is provided, the server operates in safe read-only mode for Supabase,
+ * relying on memory-level deduplication to prevent permission denied errors.
+ */
+function hasServiceRoleKey(): boolean {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return Boolean(
+    key && 
+    !key.includes('your-supabase') && 
+    !key.includes('[COLE') && 
+    !key.startsWith('sb_publishable_') &&
+    key.length > 20
+  );
+}
+
 /**
  * Initialize Supabase Client for server-side usage.
  * Prioritizes SUPABASE_SERVICE_ROLE_KEY to perform administrative atomic locks and writes.
@@ -94,6 +127,16 @@ async function acquireAtomicLock(
   workerId: string,
   timeoutSeconds: number = 25
 ): Promise<boolean> {
+  // If the server only has the public anon key, do not invoke administrative RPC functions
+  if (!hasServiceRoleKey()) {
+    try {
+      const existing = await fetchDailyFromSupabase(supabase, publishDate);
+      return !existing;
+    } catch {
+      return true;
+    }
+  }
+
   try {
     const { data, error } = await supabase.rpc('acquire_generation_lock', {
       p_date: publishDate,
@@ -104,9 +147,6 @@ async function acquireAtomicLock(
 
     if (!error && typeof data === 'boolean') {
       return data;
-    }
-    if (error) {
-      console.warn('[DevotionalService] RPC acquire_generation_lock error (falling back to direct check):', error.message);
     }
   } catch (rpcErr) {
     console.warn('[DevotionalService] RPC acquire_generation_lock call failed:', rpcErr);
@@ -132,6 +172,10 @@ async function releaseAtomicLock(
   lockToken: string,
   status: 'completed' | 'failed'
 ): Promise<boolean> {
+  if (!hasServiceRoleKey()) {
+    return true;
+  }
+
   try {
     const { data, error } = await supabase.rpc('release_generation_lock', {
       p_date: publishDate,
@@ -158,6 +202,11 @@ async function publishAtomicDevotional(
   publishDate: string,
   devotional: Devotional
 ): Promise<boolean> {
+  // If the server only has the public anon key, writing to daily_devotionals is restricted by RLS
+  if (!hasServiceRoleKey()) {
+    return false;
+  }
+
   // 1. Try atomic RPC procedure if installed
   try {
     const { data, error } = await supabase.rpc('publish_daily_devotional', {
@@ -311,7 +360,13 @@ Requisitos essenciais:
     try {
       return await generateWithModel('gemini-3.8-flash');
     } catch (primaryErr: any) {
-      console.warn('[DevotionalService] Primary model gemini-3.8-flash failed/busy, attempting gemini-3.1-flash-lite fallback:', primaryErr?.message || primaryErr);
+      const errStr = primaryErr?.message || String(primaryErr);
+      const isQuota = errStr.includes('429') || errStr.includes('RESOURCE_EXHAUSTED') || errStr.includes('quota');
+      if (isQuota) {
+        console.warn('[DevotionalService] gemini-3.8-flash cota gratuita atingida (429), tentando gemini-3.1-flash-lite...');
+      } else {
+        console.warn('[DevotionalService] gemini-3.8-flash indisponível, tentando gemini-3.1-flash-lite:', errStr);
+      }
       return await generateWithModel('gemini-3.1-flash-lite');
     }
   })();
@@ -328,20 +383,28 @@ Requisitos essenciais:
  */
 async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional: Devotional; source: string; publishDate: string }> {
   const publishDate = getSaoPauloDate();
+
+  // 0. Instant In-Memory Cache: Se já calculado hoje, retorna imediatamente em 0ms
+  if (memoryDailyCache && memoryDailyCache.publishDate === publishDate) {
+    return memoryDailyCache.result;
+  }
+
   const supabase = getServerSupabaseClient();
   const workerId = `worker-${Math.random().toString(36).substring(2, 9)}`;
   const lockToken = crypto.randomUUID();
 
-  // 1. Instant Cache Check: Se já existir devocional para a data de hoje (Brasília), retorna imediatamente.
+  // 1. Instant Supabase Cache Check: Se já existir devocional para a data de hoje (Brasília), retorna imediatamente.
   // Nenhum devocional novo é gerado a cada acesso ou atualização de página!
   if (supabase) {
     const existing = await fetchDailyFromSupabase(supabase, publishDate);
     if (existing) {
-      return {
+      const res = {
         devotional: existing,
         source: 'supabase_cache',
         publishDate
       };
+      memoryDailyCache = { publishDate, result: res };
+      return res;
     }
   }
 
@@ -365,11 +428,13 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
       await new Promise(r => setTimeout(r, intervalMs));
       const newlyGenerated = await fetchDailyFromSupabase(supabase, publishDate);
       if (newlyGenerated) {
-        return {
+        const res = {
           devotional: newlyGenerated,
           source: 'supabase_cache_after_concurrent_lock_wait',
           publishDate
         };
+        memoryDailyCache = { publishDate, result: res };
+        return res;
       }
     }
 
@@ -387,13 +452,20 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
         await publishAtomicDevotional(supabase, lockToken, publishDate, generated);
       }
 
-      return {
+      const res = {
         devotional: generated,
         source: 'gemini_generated',
         publishDate
       };
+      memoryDailyCache = { publishDate, result: res };
+      return res;
     } catch (geminiError: any) {
-      console.error('[DevotionalService] Falha ou timeout na geração com Gemini:', geminiError?.message || geminiError);
+      const isQuota = String(geminiError?.message || geminiError).includes('429');
+      if (isQuota) {
+        console.warn(`[DevotionalService] Cota diária gratuita do Gemini atingida para hoje (${publishDate}). Ativando contingência oficial.`);
+      } else {
+        console.warn('[DevotionalService] Geração com Gemini indisponível:', geminiError?.message || geminiError);
+      }
 
       if (supabase) {
         await releaseAtomicLock(supabase, publishDate, lockToken, 'failed');
@@ -412,7 +484,7 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
         .maybeSingle();
 
       if (latestRow) {
-        return {
+        const res = {
           devotional: {
             id: latestRow.id,
             title: latestRow.title,
@@ -434,6 +506,8 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
           source: 'latest_published_fallback',
           publishDate
         };
+        memoryDailyCache = { publishDate, result: res };
+        return res;
       }
     } catch (fallbackErr) {
       console.warn('[DevotionalService] Erro ao recuperar devocional mais recente:', fallbackErr);
@@ -446,7 +520,7 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
   const curatedIndex = dateHash % CURATED_DEVOTIONALS.length;
   const curated = CURATED_DEVOTIONALS[curatedIndex] || CURATED_DEVOTIONALS[0];
 
-  return {
+  const res = {
     devotional: {
       ...curated,
       date: new Date().toLocaleDateString('pt-BR', {
@@ -459,6 +533,8 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
     source: 'curated_fallback',
     publishDate
   };
+  memoryDailyCache = { publishDate, result: res };
+  return res;
 }
 
 /**

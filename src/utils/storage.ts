@@ -75,22 +75,66 @@ export const saveNotificationConfig = (config: NotificationConfig) => {
   }
 };
 
-export const getStoredCurrentDevotional = (): Devotional | null => {
+export function getSaoPauloDateClient(): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { 
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
+interface CachedDevotionalPayload {
+  publishDate: string;
+  devotional: Devotional;
+  savedAt: string;
+}
+
+/**
+ * Returns stored devotional ONLY if it matches today's date in America/Sao_Paulo.
+ * If outdated or from a previous day, returns null to avoid displaying old content.
+ */
+export const getStoredCurrentDevotional = (targetDate?: string): Devotional | null => {
   try {
     const raw = localStorage.getItem(CURRENT_DEVOTIONAL_KEY);
-    if (raw) {
-      return JSON.parse(raw);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const today = targetDate || getSaoPauloDateClient();
+
+    // Check payload structure with date
+    if (parsed && parsed.publishDate && parsed.devotional) {
+      if (parsed.publishDate === today) {
+        return parsed.devotional;
+      }
+      // If it belongs to a past date, clear it
+      localStorage.removeItem(CURRENT_DEVOTIONAL_KEY);
+      return null;
     }
+
+    // Legacy unversioned entry: clean up
+    localStorage.removeItem(CURRENT_DEVOTIONAL_KEY);
   } catch (e) {
     console.error('Error loading current devotional:', e);
   }
   return null;
 };
 
-export const saveStoredCurrentDevotional = (devotional: Devotional) => {
+export const saveStoredCurrentDevotional = (devotional: Devotional, publishDate?: string) => {
   try {
-    localStorage.setItem(CURRENT_DEVOTIONAL_KEY, JSON.stringify(devotional));
+    const today = publishDate || getSaoPauloDateClient();
+    const payload: CachedDevotionalPayload = {
+      publishDate: today,
+      devotional,
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(CURRENT_DEVOTIONAL_KEY, JSON.stringify(payload));
   } catch (e) {
     console.error('Error saving current devotional:', e);
   }
 };
+

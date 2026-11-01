@@ -81,7 +81,7 @@ ${devotional.actionStep}
 ✨ _"${devotional.verse}"_ (${devotional.reference})
 
 🌿 *Reflexão de Hoje:*
-${devotional.reflection.slice(0, 320)}...
+${devotional.reflection}
 
 🕊️ *Oração:*
 ${devotional.prayer}

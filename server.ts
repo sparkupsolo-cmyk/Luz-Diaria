@@ -16,6 +16,9 @@ app.use(express.json());
 
 // API: Today's Shared Devotional (America/Sao_Paulo)
 app.get('/api/devotional/today', async (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   try {
     const result = await getOrGenerateDailySharedDevotional();
     res.json({

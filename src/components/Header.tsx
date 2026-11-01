@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   SunMedium, 
-  Flame, 
   Bookmark, 
   Bell, 
   User as UserIcon, 
@@ -119,16 +118,6 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Bar (Desktop & Mobile) */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {/* Reading Streak */}
-            <div 
-              onClick={() => handleSelectTab('leitura-biblica')}
-              title="Sua sequência de leitura da Bíblia"
-              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-100/90 border border-amber-200/90 text-amber-900 text-xs font-semibold cursor-pointer hover:bg-amber-200/80 transition-colors"
-            >
-              <Flame className="w-3.5 h-3.5 text-orange-500 fill-orange-500 shrink-0" />
-              <span>{readingStreak} <span className="hidden xs:inline">{readingStreak === 1 ? 'dia' : 'dias'}</span></span>
-            </div>
-
             {/* Desktop-only action shortcuts */}
             <div className="hidden md:flex items-center gap-2">
               <button

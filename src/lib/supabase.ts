@@ -202,14 +202,24 @@ export async function fetchUserDevotionalHistoryFromCloud(userId: string): Promi
 /**
  * Fetch the shared community devotional of the day (America/Sao_Paulo)
  */
-export async function fetchTodaySharedDevotional(): Promise<{ devotional: Devotional; source: string } | null> {
+export async function fetchTodaySharedDevotional(): Promise<{ devotional: Devotional; source: string; publishDate?: string } | null> {
   // 1. First attempt: call backend API endpoint which handles atomic lock and Gemini recovery
   try {
-    const res = await fetch('/api/devotional/today');
+    const res = await fetch('/api/devotional/today', {
+      cache: 'no-store',
+      headers: {
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache'
+      }
+    });
     if (res.ok) {
       const data = await res.json();
       if (data?.success && data?.devotional) {
-        return { devotional: data.devotional, source: data.source };
+        return { 
+          devotional: data.devotional, 
+          source: data.source || 'api_today',
+          publishDate: data.publishDate 
+        };
       }
     }
   } catch (err) {
