@@ -2,7 +2,12 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { getOrGenerateDailySharedDevotional } from './src/server/devotionalService.js';
+import { 
+  getOrGenerateDailySharedDevotional, 
+  getSaoPauloDate,
+  fetchDailyFromSupabase,
+  getServerSupabaseClient
+} from './src/server/devotionalService.js';
 
 dotenv.config();
 
@@ -16,9 +21,7 @@ app.use(express.json());
 
 // API: Today's Shared Devotional (America/Sao_Paulo)
 app.get('/api/devotional/today', async (_req: Request, res: Response) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
   try {
     const result = await getOrGenerateDailySharedDevotional();
     res.json({
@@ -40,6 +43,24 @@ app.get('/api/cron/daily-devotional', async (req: Request, res: Response) => {
     const authHeader = req.headers['authorization'];
     if (authHeader !== `Bearer ${cronSecret}`) {
       return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+
+  const currentDateBRT = getSaoPauloDate();
+
+  // Regra 5: O Cron NÃO pode substituir um devocional que já foi publicado naquele dia.
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
+    const existing = await fetchDailyFromSupabase(supabase, currentDateBRT);
+    if (existing) {
+      console.log(`[Cron] Devocional já existe no Supabase para ${currentDateBRT}. Nenhuma nova geração necessária.`);
+      return res.json({
+        success: true,
+        message: `Devocional oficial de ${currentDateBRT} já está publicado e imutável no Supabase.`,
+        source: 'supabase_already_published',
+        title: existing.title,
+        reference: existing.reference
+      });
     }
   }
 

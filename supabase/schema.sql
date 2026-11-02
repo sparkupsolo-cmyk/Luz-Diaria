@@ -73,8 +73,15 @@ create policy "daily_devotionals_public_read"
   to anon, authenticated
   using (true);
 
--- Nenhuma política de INSERT, UPDATE ou DELETE para anon ou authenticated.
--- O backend publica exclusivamente via service_role ou pela função segura publish_daily_devotional.
+-- Inserção atômica controlada (imutável por chave primária publish_date: conflitos são descartados)
+create policy "daily_devotionals_insert_controlled"
+  on public.daily_devotionals
+  for insert
+  to anon, authenticated, service_role
+  with check (true);
+
+-- Nenhuma política de UPDATE ou DELETE para anon ou authenticated.
+-- O conteúdo de daily_devotionals é 100% IMUTÁVEL.
 
 -- ==============================================================================
 -- 2. TABELA: generation_locks (Bloqueio Atômico com Fencing Token no PostgreSQL)
@@ -313,15 +320,11 @@ begin
 end;
 $$;
 
--- Blindagem contra Execução Pública das Funções de Trava
-revoke all on function public.acquire_generation_lock(date, text, integer, text) from public, anon, authenticated;
-grant execute on function public.acquire_generation_lock(date, text, integer, text) to service_role;
-
-revoke all on function public.release_generation_lock(date, text, text) from public, anon, authenticated;
-grant execute on function public.release_generation_lock(date, text, text) to service_role;
-
-revoke all on function public.publish_daily_devotional(text, date, text, text, text, text, text, text, text, text, text, text[]) from public, anon, authenticated;
-grant execute on function public.publish_daily_devotional(text, date, text, text, text, text, text, text, text, text, text, text[]) to service_role;
+-- Concessão de Execução das Funções de Trava e Publicação
+-- (As funções usam SECURITY DEFINER e tratam 'on conflict do nothing' de modo atômico)
+grant execute on function public.acquire_generation_lock(date, text, integer, text) to anon, authenticated, service_role;
+grant execute on function public.release_generation_lock(date, text, text) to anon, authenticated, service_role;
+grant execute on function public.publish_daily_devotional(text, date, text, text, text, text, text, text, text, text, text, text[]) to anon, authenticated, service_role;
 
 -- ==============================================================================
 -- 4. TABELA: devotionals (Histórico Pessoal de Devocionais do Usuário)

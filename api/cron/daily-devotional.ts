@@ -1,4 +1,9 @@
-import { getOrGenerateDailySharedDevotional, getSaoPauloDate } from '../../src/server/devotionalService.js';
+import { 
+  getOrGenerateDailySharedDevotional, 
+  getSaoPauloDate,
+  fetchDailyFromSupabase,
+  getServerSupabaseClient
+} from '../../src/server/devotionalService.js';
 
 export default async function handler(req: any, res: any) {
   // 1. Verify Vercel Cron Secret if configured
@@ -13,7 +18,23 @@ export default async function handler(req: any, res: any) {
   }
 
   const currentDateBRT = getSaoPauloDate();
-  console.log(`[Vercel Cron] Running daily devotional task for date: ${currentDateBRT} (America/Sao_Paulo)`);
+  console.log(`[Vercel Cron] Executando rotina diária para a data: ${currentDateBRT} (America/Sao_Paulo)`);
+
+  // Regra 5: O Cron NÃO pode substituir um devocional que já foi publicado naquele dia.
+  const supabase = getServerSupabaseClient();
+  if (supabase) {
+    const existing = await fetchDailyFromSupabase(supabase, currentDateBRT);
+    if (existing) {
+      console.log(`[Vercel Cron] Devocional já existe no Supabase para ${currentDateBRT}. Nenhuma nova geração necessária.`);
+      return res.status(200).json({
+        success: true,
+        message: `Devocional oficial de ${currentDateBRT} já está publicado e imutável no Supabase.`,
+        source: 'supabase_already_published',
+        title: existing.title,
+        reference: existing.reference
+      });
+    }
+  }
 
   try {
     const result = await getOrGenerateDailySharedDevotional();
