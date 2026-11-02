@@ -41,36 +41,97 @@ let memoryDailyCache: {
 } | null = null;
 
 /**
- * Checks whether the server environment has administrative SUPABASE_SERVICE_ROLE_KEY.
- * The service_role key is required to invoke administrative lock functions and write to daily_devotionals.
- * If only the public anon key is provided, the server operates in safe read-only mode for Supabase,
- * relying on memory-level deduplication to prevent permission denied errors.
+ * Registra auditoria segura sobre a chave administrativa SUPABASE_SERVICE_ROLE_KEY.
+ * Exibe apenas presença, formato estrutural detectado e tamanho da chave.
+ * NUNCA imprime nem expõe caracteres do segredo.
  */
-function hasServiceRoleKey(): boolean {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  return Boolean(
-    key && 
-    !key.includes('your-supabase') && 
-    !key.includes('[COLE') && 
-    !key.startsWith('sb_publishable_') &&
-    key.length > 20
-  );
+function logServiceRoleKeySecurityAudit(isValid: boolean): void {
+  const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const isPresent = Boolean(rawKey && rawKey.trim().length > 0);
+
+  if (!isPresent) {
+    console.error(
+      '[DevotionalService] [SEGURANÇA] SUPABASE_SERVICE_ROLE_KEY ausente no ambiente. Operações administrativas abortadas. Nenhuma tentativa de escrita será feita com chave pública.'
+    );
+    return;
+  }
+
+  const trimmed = rawKey!.trim();
+  let detectedFormat = 'formato_desconhecido';
+
+  if (trimmed.startsWith('sb_secret_')) {
+    detectedFormat = 'supabase_secret (sb_secret_...)';
+  } else if (trimmed.startsWith('ey') && trimmed.split('.').length === 3) {
+    detectedFormat = 'jwt_service_role (ey...)';
+  } else if (trimmed.startsWith('sb_publishable_') || trimmed.startsWith('sbp_')) {
+    detectedFormat = 'invalido_chave_publica_detectada';
+  } else if (trimmed.includes('your-supabase') || trimmed.includes('[COLE')) {
+    detectedFormat = 'invalido_placeholder';
+  }
+
+  if (!isValid) {
+    console.error(
+      `[DevotionalService] [SEGURANÇA] SUPABASE_SERVICE_ROLE_KEY inválida para operações administrativas: presente=true, formato=${detectedFormat}, comprimento=${trimmed.length}. Gravação no Supabase bloqueada.`
+    );
+  } else {
+    console.log(
+      `[DevotionalService] [SEGURANÇA] SUPABASE_SERVICE_ROLE_KEY validada com sucesso: presente=true, formato=${detectedFormat}, comprimento=${trimmed.length}. Cliente administrativo inicializado.`
+    );
+  }
 }
 
 /**
- * Initialize Supabase Client for server-side usage.
- * Prioritizes SUPABASE_SERVICE_ROLE_KEY to perform administrative atomic locks and writes.
- * The service role key is NEVER exposed to the frontend/browser.
+ * Valida se a chave SUPABASE_SERVICE_ROLE_KEY está configurada
+ * com formato adequado para operações administrativas (service_role) no Supabase.
+ */
+export function hasServiceRoleKey(): boolean {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key || typeof key !== 'string') {
+    return false;
+  }
+
+  const trimmed = key.trim();
+  const isPlaceholder = trimmed.includes('your-supabase') || trimmed.includes('[COLE');
+  const isPublishable = trimmed.startsWith('sb_publishable_') || trimmed.startsWith('sbp_');
+  const isLongEnough = trimmed.length > 20;
+
+  return !isPlaceholder && !isPublishable && isLongEnough;
+}
+
+/**
+ * Inicializa o cliente Supabase para operações administrativas no servidor.
+ * 
+ * REGRAS MANDATÓRIAS:
+ * 1. Utiliza EXCLUSIVAMENTE process.env.SUPABASE_SERVICE_ROLE_KEY.
+ * 2. Sem fallbacks para VITE_SUPABASE_ANON_KEY ou VITE_SUPABASE_PUBLISHABLE_KEY.
+ * 3. Se SUPABASE_SERVICE_ROLE_KEY estiver ausente ou inválida, interrompe e registra erro explícito,
+ *    retornando null sem jamais tentar operações de escrita com chave pública.
+ * 4. Valida a configuração através de hasServiceRoleKey().
+ * 5. Emite logs seguros indicando apenas se a variável está presente e seu formato esperado,
+ *    nunca expondo o valor da chave.
  */
 export function getServerSupabaseClient(): SupabaseClient | null {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-  if (!url || !key || url.includes('your-project-id') || url.includes('[COLE') || key.includes('your-supabase') || key.includes('[COLE')) {
+  if (!url || url.includes('your-project-id') || url.includes('[COLE')) {
+    console.error('[DevotionalService] SUPABASE_URL não configurada ou com placeholder inválido.');
     return null;
   }
 
-  return createClient(url, key, {
+  const isValid = hasServiceRoleKey();
+  logServiceRoleKeySecurityAudit(isValid);
+
+  if (!isValid) {
+    console.error(
+      '[DevotionalService] Operação administrativa cancelada: SUPABASE_SERVICE_ROLE_KEY necessária para gravação e gestão de concorrência não está disponível.'
+    );
+    return null;
+  }
+
+  // Utiliza exclusivamente a chave service_role administrativa (sem fallback para chaves públicas)
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!.trim();
+
+  return createClient(url, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false
@@ -254,9 +315,14 @@ async function publishAtomicDevotional(
       return true;
     }
 
-    console.warn('[DevotionalService] Aviso ao inserir em daily_devotionals:', insertErr.message);
+    console.error('[DevotionalService] Erro ao inserir em daily_devotionals no Supabase:', {
+      code: insertErr.code,
+      message: insertErr.message,
+      details: insertErr.details,
+      hint: insertErr.hint
+    });
   } catch (directErr) {
-    console.warn('[DevotionalService] Exceção na inserção direta em daily_devotionals:', directErr);
+    console.error('[DevotionalService] Exceção na inserção direta em daily_devotionals:', directErr);
   }
 
   return false;
@@ -517,8 +583,8 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
 
   // 5. Persiste atômica e imutavelmente no Supabase
   if (supabase && candidateDevotional) {
-    await publishAtomicDevotional(supabase, lockToken, publishDate, candidateDevotional);
-    await releaseAtomicLock(supabase, publishDate, lockToken, 'completed');
+    const published = await publishAtomicDevotional(supabase, lockToken, publishDate, candidateDevotional);
+    await releaseAtomicLock(supabase, publishDate, lockToken, published ? 'completed' : 'failed');
 
     // Consulta imediatamente o banco para garantir que todas as instâncias leiam o registro oficial gravado
     const persisted = await fetchDailyFromSupabase(supabase, publishDate);
@@ -531,12 +597,25 @@ async function executeGetOrGenerateDailySharedDevotional(): Promise<{ devotional
       memoryDailyCache = { publishDate, result: res };
       return res;
     }
+
+    console.error(
+      `[DevotionalService] FALHA DE PERSISTÊNCIA: O devocional para ${publishDate} não pôde ser gravado ou confirmado no Supabase.`
+    );
   }
 
-  // 6. Retorno seguro determinístico (caso o Supabase esteja temporariamente indisponível para escrita)
+  // 6. Retorno de fallback (quando o Supabase não estiver configurado com service_role ou a persistência falhou)
+  // Regra 7: NUNCA apresenta fallback em memória como se tivesse sido publicado com sucesso no banco.
+  const fallbackSource = !supabase
+    ? 'memory_fallback_unpersisted_no_service_key'
+    : 'memory_fallback_unpersisted_write_failed';
+
+  console.warn(
+    `[DevotionalService] Retornando fallback em memória (${fallbackSource}) para ${publishDate}. Registro NÃO persistido no Supabase.`
+  );
+
   const finalResult = {
     devotional: candidateDevotional,
-    source: generationSource,
+    source: fallbackSource,
     publishDate
   };
   memoryDailyCache = { publishDate, result: finalResult };
